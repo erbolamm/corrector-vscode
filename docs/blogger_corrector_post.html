@@ -1,0 +1,234 @@
+<div itemscope="" itemtype="https://schema.org/SoftwareApplication"
+    style="background-color: #f8f9fa; border-radius: 15px; color: #1e293b; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; margin: auto; max-width: 850px; padding: 20px;">
+
+    <meta content="Corrector — Asistente de escritura para Copilot Chat" itemprop="name" />
+    <meta content="https://github.com/erbolamm/corrector-vscode" itemprop="url" />
+    <meta content="DeveloperApplication" itemprop="applicationCategory" />
+
+    <header
+        style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); border-radius: 20px; box-shadow: rgba(0, 0, 0, 0.15) 0px 10px 25px; color: white; margin-bottom: 40px; padding: 60px 20px; text-align: center;">
+        <div style="font-size: 64px; margin-bottom: 20px;">🔤</div>
+        <h2
+            style="font-size: 32px; font-weight: 800; letter-spacing: -1px; margin: 0px 0px 15px; text-transform: uppercase;">
+            Corrector: Tu asistente de escritura en Copilot Chat</h2>
+        <p style="font-size: 18px; margin: auto; max-width: 600px; opacity: 0.9;">Extensión de VS Code que corrige la ortografía en español directamente dentro del chat de GitHub Copilot. Diseñada para personas con dislexia.</p>
+        <div
+            style="background: #c4b5fd; border-radius: 50px; color: #3b0764; display: inline-block; font-size: 13px; font-weight: bold; margin-top: 20px; padding: 6px 15px; text-transform: uppercase;">
+            100% Offline · Sin dependencias · Open Source</div>
+
+        <!-- Botones de apoyo -->
+        <div
+            style="margin-top: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <span style="font-size: 13px; opacity: 0.6;">❤️ Apoya el proyecto:</span>
+            <a href="https://www.paypal.com/paypalme/erbolamm" target="_blank"
+                style="color: rgba(255,255,255,0.85); text-decoration: none; background: rgba(255,255,255,0.12); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: 600;">💳
+                PayPal</a>
+            <a href="https://ko-fi.com/C0C11TWR1K" target="_blank"
+                style="color: rgba(255,255,255,0.85); text-decoration: none; background: rgba(255,255,255,0.12); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: 600;">☕
+                Ko-fi</a>
+            <a href="https://github.com/erbolamm/corrector-vscode" target="_blank"
+                style="color: rgba(255,255,255,0.85); text-decoration: none; background: rgba(255,255,255,0.12); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: 600;">⭐
+                GitHub</a>
+        </div>
+    </header>
+
+    <section style="margin-bottom: 40px; padding: 0px 10px;">
+        <p itemprop="description" style="color: #334155; font-size: 18px;">
+            ¿Tienes dislexia y usas Copilot en VS Code? ¿Escribes rápido y se te escapan errores ortográficos? Con <strong>@corrector</strong> tus mensajes se corrigen automáticamente <strong>antes</strong> de llegar a Copilot. 150+ reglas de español, sin conexión a internet, sin enviar tus datos a ningún sitio.
+        </p>
+    </section>
+
+    <!-- Ejemplo visual -->
+    <div style="background: #1e1e2e; border-radius: 12px; margin-bottom: 40px; padding: 25px; color: #cdd6f4;">
+        <div style="font-size: 13px; color: #6c7086; margin-bottom: 15px; font-family: monospace;">💬 Chat de Copilot</div>
+        <div style="margin-bottom: 20px;">
+            <span style="color: #89b4fa; font-weight: 600;">Tú escribes:</span>
+            <div style="background: #313244; border-radius: 8px; padding: 12px; margin-top: 5px; font-family: monospace; font-size: 14px; color: #f38ba8;">
+                @corrector ola vuenos dias kiero aser una app para el movil
+            </div>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <span style="color: #a6e3a1; font-weight: 600;">@corrector responde:</span>
+            <div style="background: #313244; border-radius: 8px; padding: 12px; margin-top: 5px; font-size: 14px;">
+                <div style="color: #a6e3a1; margin-bottom: 10px;">📝 <strong>Texto corregido</strong> (6 correcciones):</div>
+                <div style="color: #cdd6f4; font-size: 15px; margin-bottom: 15px;">&gt; Hola buenos días quiero hacer una app para el móvil</div>
+                <div style="color: #6c7086; font-size: 13px;">
+                    • <del>ola</del> → <strong style="color: #a6e3a1;">hola</strong> <em>(h omitida)</em><br/>
+                    • <del>vuenos</del> → <strong style="color: #a6e3a1;">buenos</strong> <em>(v→b)</em><br/>
+                    • <del>dias</del> → <strong style="color: #a6e3a1;">días</strong> <em>(tilde)</em><br/>
+                    • <del>kiero</del> → <strong style="color: #a6e3a1;">quiero</strong> <em>(k→qu)</em><br/>
+                    • <del>aser</del> → <strong style="color: #a6e3a1;">hacer</strong> <em>(h omitida)</em><br/>
+                    • <del>movil</del> → <strong style="color: #a6e3a1;">móvil</strong> <em>(tilde)</em>
+                </div>
+                <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span style="background: #45475a; color: #cdd6f4; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;">📋 Copiar</span>
+                    <span style="background: #7c3aed; color: white; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;">🚀 Enviar a Copilot</span>
+                    <span style="background: #45475a; color: #a6e3a1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;">✅ Permitir siempre</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3 style="font-size: 24px; margin-bottom: 25px; text-align: center;">¿Qué hace @corrector?</h3>
+    <div
+        style="display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-bottom: 40px;">
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">🔤</div>
+            <strong style="display: block; margin-bottom: 8px;">150+ reglas de español</strong>
+            <span style="color: #64748b; font-size: 14px;">B/V, H omitida, C/S/Z, G/J, LL/Y, tildes, abreviaturas de chat y mucho más.</span>
+        </div>
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">✈️</div>
+            <strong style="display: block; margin-bottom: 8px;">100% Offline</strong>
+            <span style="color: #64748b; font-size: 14px;">Todo funciona en tu máquina. Sin APIs, sin enviar tus textos a ningún servidor externo.</span>
+        </div>
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">🚀</div>
+            <strong style="display: block; margin-bottom: 8px;">3 botones inteligentes</strong>
+            <span style="color: #64748b; font-size: 14px;"><strong>Copiar</strong> al portapapeles, <strong>Enviar</strong> directo a Copilot, o <strong>Permitir siempre</strong> esas palabras.</span>
+        </div>
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">📖</div>
+            <strong style="display: block; margin-bottom: 8px;">Diccionario personal</strong>
+            <span style="color: #64748b; font-size: 14px;">Añade tus propias palabras y reglas. Se guardan entre sesiones automáticamente.</span>
+        </div>
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">💬</div>
+            <strong style="display: block; margin-bottom: 8px;">Texto correcto = pasa directo</strong>
+            <span style="color: #64748b; font-size: 14px;">Si no hay errores, tu mensaje se envía automáticamente a Copilot. Sin interrupciones.</span>
+        </div>
+        <div
+            style="background: white; border-radius: 12px; border: 1px solid rgb(226, 232, 240); box-shadow: rgba(0, 0, 0, 0.02) 0px 4px 6px; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">♿</div>
+            <strong style="display: block; margin-bottom: 8px;">Diseñado para dislexia</strong>
+            <span style="color: #64748b; font-size: 14px;">Pensado desde cero para personas con dificultades de escritura. Sin juicios, solo soluciones.</span>
+        </div>
+    </div>
+
+    <!-- Cómo instalar -->
+    <h3
+        style="border-bottom: 2px solid rgb(226, 232, 240); font-size: 24px; margin-bottom: 20px; padding-bottom: 10px;">
+        🛠️ Cómo instalar</h3>
+    <div style="margin-bottom: 40px;">
+        <div style="align-items: flex-start; display: flex; margin-bottom: 15px;">
+            <div
+                style="align-items: center; background: #7c3aed; border-radius: 50%; color: white; display: flex; font-weight: bold; height: 30px; justify-content: center; margin-right: 15px; min-width: 30px;">
+                1</div>
+            <div>Abre <strong>VS Code</strong> con <strong>GitHub Copilot</strong> activo</div>
+        </div>
+        <div style="align-items: flex-start; display: flex; margin-bottom: 15px;">
+            <div
+                style="align-items: center; background: #7c3aed; border-radius: 50%; color: white; display: flex; font-weight: bold; height: 30px; justify-content: center; margin-right: 15px; min-width: 30px;">
+                2</div>
+            <div>Busca <strong>"Corrector"</strong> en el Marketplace de extensiones (Ctrl+Shift+X)</div>
+        </div>
+        <div style="align-items: flex-start; display: flex; margin-bottom: 15px;">
+            <div
+                style="align-items: center; background: #7c3aed; border-radius: 50%; color: white; display: flex; font-weight: bold; height: 30px; justify-content: center; margin-right: 15px; min-width: 30px;">
+                3</div>
+            <div>Instala la extensión y abre el <strong>chat de Copilot</strong></div>
+        </div>
+        <div style="align-items: flex-start; display: flex; margin-bottom: 15px;">
+            <div
+                style="align-items: center; background: #7c3aed; border-radius: 50%; color: white; display: flex; font-weight: bold; height: 30px; justify-content: center; margin-right: 15px; min-width: 30px;">
+                4</div>
+            <div>Escribe <strong>@corrector</strong> seguido de tu texto. ¡Listo!</div>
+        </div>
+    </div>
+
+    <!-- Errores que corrige -->
+    <div style="background: rgb(241, 245, 249); border-radius: 12px; margin-bottom: 40px; padding: 25px;">
+        <h3 style="margin-top: 0px;">Tipos de errores que corrige</h3>
+        <table style="border-collapse: collapse; font-size: 14px; width: 100%;">
+            <tbody>
+                <tr style="border-bottom: 1px solid rgb(203, 213, 225);">
+                    <td style="font-weight: bold; padding: 10px;">B/V</td>
+                    <td style="padding: 10px;">vueno → bueno, bamos → vamos</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgb(203, 213, 225);">
+                    <td style="font-weight: bold; padding: 10px;">H omitida</td>
+                    <td style="padding: 10px;">ola → hola, aser → hacer</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgb(203, 213, 225);">
+                    <td style="font-weight: bold; padding: 10px;">Tildes</td>
+                    <td style="padding: 10px;">dias → días, tambien → también</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgb(203, 213, 225);">
+                    <td style="font-weight: bold; padding: 10px;">Chat/SMS</td>
+                    <td style="padding: 10px;">q → que, xq → porque, tb → también</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgb(203, 213, 225);">
+                    <td style="font-weight: bold; padding: 10px;">C/S/Z</td>
+                    <td style="padding: 10px;">desir → decir, grasias → gracias</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold; padding: 10px;">Y más...</td>
+                    <td style="padding: 10px;">G/J, LL/Y, N→M antes de B/P, transposiciones</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Comandos -->
+    <div style="background: #1e1e2e; border-radius: 12px; margin-bottom: 40px; padding: 25px; color: #cdd6f4;">
+        <h3 style="color: #cdd6f4; margin-top: 0px;">⌨️ Comandos disponibles</h3>
+        <div style="font-family: monospace; font-size: 14px; line-height: 2;">
+            <div><span style="color: #89b4fa;">@corrector</span> <span style="color: #a6adc8;">tu texto aquí</span> <span style="color: #6c7086;">— Corrige el texto</span></div>
+            <div><span style="color: #89b4fa;">@corrector</span> <span style="color: #f9e2af;">/ayuda</span> <span style="color: #6c7086;">— Muestra la ayuda</span></div>
+            <div><span style="color: #89b4fa;">@corrector</span> <span style="color: #f9e2af;">/agregar</span> <span style="color: #a6adc8;">errorr=correcto</span> <span style="color: #6c7086;">— Añade regla personalizada</span></div>
+            <div><span style="color: #89b4fa;">@corrector</span> <span style="color: #f9e2af;">/ignorar</span> <span style="color: #a6adc8;">palabra</span> <span style="color: #6c7086;">— No corregir esta palabra</span></div>
+            <div><span style="color: #89b4fa;">@corrector</span> <span style="color: #f9e2af;">/stats</span> <span style="color: #6c7086;">— Estadísticas de uso</span></div>
+        </div>
+    </div>
+
+    <!-- CTA principal -->
+    <div style="margin: 40px 0px; text-align: center;">
+        <a href="https://github.com/erbolamm/corrector-vscode" rel="noopener"
+            style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); border-radius: 50px; box-shadow: rgba(124, 58, 237, 0.3) 0px 10px 20px; color: white; display: inline-block; font-size: 18px; font-weight: 800; padding: 18px 35px; text-decoration: none; margin-bottom: 12px;"
+            target="_blank" title="Ver Corrector en GitHub">🚀 VER EN GITHUB</a>
+        <br />
+        <a href="https://github.com/erbolamm/corrector-vscode" rel="noopener"
+            style="color: #7c3aed; display: inline-block; font-size: 14px; font-weight: 600; margin-top: 8px; text-decoration: none;"
+            target="_blank">⭐ Dale una estrella en GitHub</a>
+    </div>
+
+    <!-- Redes sociales y apoyo -->
+    <div style="background: #f1f5f9; border-radius: 12px; padding: 25px; margin-bottom: 30px; text-align: center;">
+        <h4 style="margin-top: 0; color: #334155; font-size: 16px; margin-bottom: 15px;">🤝 Sígueme y apoya el proyecto</h4>
+        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+            <a href="https://github.com/erbolamm" target="_blank"
+                style="background: #24292e; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">🐙 GitHub</a>
+            <a href="https://twitter.com/intent/tweet?text=%F0%9F%94%A4%20Corrector%3A%20extensi%C3%B3n%20de%20VS%20Code%20que%20corrige%20la%20ortograf%C3%ADa%20en%20espa%C3%B1ol%20dentro%20del%20chat%20de%20Copilot.%20Dise%C3%B1ada%20para%20personas%20con%20dislexia.%20100%25%20offline%20%F0%9F%9A%80&url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode"
+                target="_blank"
+                style="background: #1da1f2; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">🐦 Twitter</a>
+            <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode"
+                target="_blank"
+                style="background: #0077b5; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">💼 LinkedIn</a>
+            <a href="https://t.me/share/url?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode&text=%F0%9F%94%A4%20Corrector%20ortogr%C3%A1fico%20para%20Copilot%20Chat%20-%20150%2B%20reglas%20de%20espa%C3%B1ol"
+                target="_blank"
+                style="background: #0088cc; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">✈️ Telegram</a>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+            <a href="https://www.paypal.com/paypalme/erbolamm" target="_blank"
+                style="background: #003087; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">💳 PayPal</a>
+            <a href="https://ko-fi.com/C0C11TWR1K" target="_blank"
+                style="background: #ff5e5b; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">☕ Ko-fi</a>
+            <a href="https://streamelements.com/apliarte/tip" target="_blank"
+                style="background: #6441a5; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">🎮 Twitch Tip</a>
+        </div>
+    </div>
+
+    <footer
+        style="background: #1e1e2e; border-radius: 12px; color: #94a3b8; font-size: 12px; padding: 20px; text-align: center;">
+        © 2026 <a href="https://apliarte-click-pro-2026.web.app/" target="_blank"
+            style="color: #c4b5fd; text-decoration: none; font-weight: 600;">ApliArte</a> · Extensiones de VS Code para todos<br />
+        Hecho con pasión por Javier Mateo | <a href="https://github.com/erbolamm/corrector-vscode" target="_blank"
+            style="color: #c4b5fd; text-decoration: none;">Open Source</a>
+    </footer>
+
+</div>
