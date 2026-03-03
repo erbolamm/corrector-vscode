@@ -147,35 +147,81 @@ async function manejarMensajeChat(
         return;
     }
 
+    // Comando especial: /modelos
+    if (request.command === 'modelos') {
+        await mostrarModelosDisponibles(stream);
+        return;
+    }
+
     // ── CORRECCIÓN PRINCIPAL ──
     const resultado = motor.corregir(texto);
     const config = vscode.workspace.getConfiguration('corrector');
     const mostrarOriginal = config.get<boolean>('mostrarOriginal', true);
     const mostrarExplicaciones = config.get<boolean>('mostrarExplicaciones', true);
 
+    const reenviarIA = config.get<boolean>('reenviarACopilot', false);
+
     if (resultado.totalCorrecciones === 0) {
-        // Sin errores → informar y ofrecer enviar a Copilot
-        // NOTA: La corrección es 100% offline, NO usa IA.
-        // El botón "Enviar a Copilot" simplemente abre el chat con el texto.
-        stream.markdown('✅ **Sin errores ortográficos.** Tu texto está bien escrito.\n\n');
-        stream.markdown('> ' + texto + '\n\n');
-        stream.markdown('---\n');
-        stream.markdown('💡 _La corrección se ha realizado **sin conexión a internet ni IA**. ' +
-            'El motor analiza tu texto con más de 150 reglas de español integradas en la extensión._\n\n');
+        // Sin errores ortográficos
+        if (reenviarIA) {
+            // ── MODO IA: reenviar directamente a Copilot ──
+            stream.markdown('✅ **Sin errores ortográficos** — reenviando a Copilot...\n\n');
+            stream.markdown('⚠️ _Modo IA activado: este reenvío **consume tokens** de tu plan de Copilot. ' +
+                'Puedes desactivarlo en Ajustes → `corrector.reenviarACopilot`._\n\n');
+            try {
+                const modeloSeleccionado = await seleccionarModelo(config, stream);
+                if (modeloSeleccionado) {
+                    stream.markdown('🤖 _Usando modelo: **' + modeloSeleccionado.name + '** (' + modeloSeleccionado.vendor + ')_\n\n');
+                    const mensajes = [vscode.LanguageModelChatMessage.User(texto)];
+                    const respuesta = await modeloSeleccionado.sendRequest(mensajes, {}, _token);
+                    for await (const fragmento of respuesta.text) {
+                        stream.markdown(fragmento);
+                    }
+                } else {
+                    // Sin modelo disponible → fallback a botones
+                    stream.markdown('⚠️ No se encontró ningún modelo de IA disponible. ' +
+                        'Asegúrate de tener GitHub Copilot u otra extensión de IA activa.\n\n');
+                    stream.markdown('💡 _Usa `@corrector /modelos` para ver los modelos disponibles._\n\n');
+                    stream.markdown('> ' + texto + '\n\n');
+                    stream.button({
+                        command: 'corrector.enviarACopilot',
+                        title: '🚀 Enviar a Copilot manualmente',
+                        arguments: [texto],
+                    });
+                }
+            } catch (err) {
+                stream.markdown('⚠️ Error al conectar con Copilot: ' + String(err) + '\n\n');
+                stream.markdown('> ' + texto + '\n\n');
+                stream.button({
+                    command: 'corrector.enviarACopilot',
+                    title: '🚀 Enviar a Copilot manualmente',
+                    arguments: [texto],
+                });
+            }
+        } else {
+            // ── MODO OFFLINE (por defecto): solo informar + botones ──
+            stream.markdown('✅ **Sin errores ortográficos.** Tu texto está bien escrito.\n\n');
+            stream.markdown('> ' + texto + '\n\n');
+            stream.markdown('---\n');
+            stream.markdown('💡 _Corrección 100% offline — sin IA, sin internet. ' +
+                'Motor integrado con más de 150 reglas de español._\n\n');
+            stream.markdown('💬 _¿Quieres que el texto pase directo a Copilot cuando no tenga errores? ' +
+                'Activa `corrector.reenviarACopilot` en Ajustes (⚠️ consume tokens)._\n\n');
 
-        // Botón para enviar a Copilot (usa comando interno, NO necesita IA)
-        stream.button({
-            command: 'corrector.enviarACopilot',
-            title: '🚀 Enviar a Copilot',
-            arguments: [texto],
-        });
+            // Botón para enviar a Copilot (abre el chat, NO usa IA)
+            stream.button({
+                command: 'corrector.enviarACopilot',
+                title: '🚀 Enviar a Copilot',
+                arguments: [texto],
+            });
 
-        // Botón para copiar
-        stream.button({
-            command: 'corrector.copiarTexto',
-            title: '📋 Copiar',
-            arguments: [texto],
-        });
+            // Botón para copiar
+            stream.button({
+                command: 'corrector.copiarTexto',
+                title: '📋 Copiar',
+                arguments: [texto],
+            });
+        }
     } else {
         // Recoger las palabras originales para el botón "Permitir siempre"
         const palabrasOriginales = resultado.correcciones.map(c => c.original);
@@ -223,6 +269,13 @@ async function manejarMensajeChat(
             title: '✅ Permitir siempre',
             arguments: [palabrasOriginales],
         });
+
+        // Si modo IA está activado, ofrecer reenvío directo
+        if (reenviarIA) {
+            stream.markdown('\n---\n');
+            stream.markdown('⚠️ _Modo IA activado: puedes reenviar el texto corregido directamente ' +
+                'a Copilot (consume tokens). Desactívalo en `corrector.reenviarACopilot`._\n');
+        }
     }
 
     // Guardar datos actualizados
@@ -252,6 +305,104 @@ function mostrarAyuda(stream: vscode.ChatResponseStream): void {
     stream.markdown('- N→M antes de B/P\n');
     stream.markdown('- Transposiciones comunes\n');
     stream.markdown('- Diccionario personal ampliable\n');
+    stream.markdown('\n### Modo IA (opcional)\n');
+    stream.markdown('- Activa `corrector.reenviarACopilot` en Ajustes para reenviar automáticamente a una IA\n');
+    stream.markdown('- Configura `corrector.modeloPreferido` para elegir el modelo (ej: `gpt-4o-mini`, `claude-3-haiku`)\n');
+    stream.markdown('- Usa `/modelos` para ver todos los modelos disponibles\n');
+    stream.markdown('- ⚠️ El modo IA consume tokens de tu plan\n');
+}
+
+// ─── SELECTOR DINÁMICO DE MODELOS IA ────────────────────────────────────────
+
+/**
+ * Selecciona un modelo de IA disponible según la preferencia del usuario.
+ * Si hay preferencia configurada, la usa. Si no, muestra picker.
+ * Si no hay modelos disponibles, retorna null.
+ */
+async function seleccionarModelo(
+    config: vscode.WorkspaceConfiguration,
+    stream: vscode.ChatResponseStream
+): Promise<vscode.LanguageModelChat | null> {
+    const preferido = config.get<string>('modeloPreferido', '').trim();
+
+    // Obtener TODOS los modelos disponibles (sin filtro)
+    const todosModelos = await vscode.lm.selectChatModels();
+
+    if (todosModelos.length === 0) {
+        return null;
+    }
+
+    // Si hay un modelo preferido configurado, buscarlo
+    if (preferido) {
+        // Buscar por familia, nombre o id (flexible)
+        const encontrado = todosModelos.find(m =>
+            m.family.toLowerCase() === preferido.toLowerCase() ||
+            m.name.toLowerCase().includes(preferido.toLowerCase()) ||
+            m.id.toLowerCase().includes(preferido.toLowerCase())
+        );
+        if (encontrado) {
+            return encontrado;
+        }
+        // No encontrado → avisar y mostrar los disponibles
+        stream.markdown('⚠️ _Modelo preferido "' + preferido + '" no encontrado. ' +
+            'Usa `@corrector /modelos` para ver los disponibles._\n\n');
+    }
+
+    // Si solo hay 1 modelo, usarlo directamente
+    if (todosModelos.length === 1) {
+        return todosModelos[0];
+    }
+
+    // Varios disponibles → mostrar picker
+    const opciones = todosModelos.map(m => ({
+        label: m.name,
+        description: m.vendor + ' · ' + m.family,
+        detail: 'ID: ' + m.id,
+        modelo: m,
+    }));
+
+    const seleccion = await vscode.window.showQuickPick(opciones, {
+        placeHolder: 'Elige un modelo de IA (o configura corrector.modeloPreferido)',
+        title: 'Corrector — Modelos de IA disponibles',
+    });
+
+    if (seleccion) {
+        return seleccion.modelo;
+    }
+
+    return null;
+}
+
+/**
+ * Muestra todos los modelos de IA disponibles en VS Code.
+ */
+async function mostrarModelosDisponibles(stream: vscode.ChatResponseStream): Promise<void> {
+    stream.markdown('## 🤖 Modelos de IA disponibles\n\n');
+
+    const modelos = await vscode.lm.selectChatModels();
+
+    if (modelos.length === 0) {
+        stream.markdown('❌ No se encontró ningún modelo de IA.\n\n');
+        stream.markdown('Para usar el modo IA necesitas tener instalada una extensión que proporcione modelos, como:\n');
+        stream.markdown('- **GitHub Copilot** (Pro / Pro+)\n');
+        stream.markdown('- Otras extensiones de IA para VS Code\n');
+        return;
+    }
+
+    stream.markdown('Se encontraron **' + modelos.length + '** modelos disponibles:\n\n');
+    stream.markdown('| # | Modelo | Proveedor | Familia | Para configurar |\n');
+    stream.markdown('|---|--------|-----------|---------|----------------|\n');
+
+    modelos.forEach((m, i) => {
+        stream.markdown('| ' + (i + 1) + ' | ' + m.name + ' | ' + m.vendor + ' | `' + m.family + '` | `"corrector.modeloPreferido": "' + m.family + '"` |\n');
+    });
+
+    stream.markdown('\n### Cómo configurar\n\n');
+    stream.markdown('1. Abre **Ajustes** (`Cmd+,` / `Ctrl+,`)\n');
+    stream.markdown('2. Busca `corrector.modeloPreferido`\n');
+    stream.markdown('3. Escribe la **familia** del modelo que prefieras (ej: `gpt-4o-mini`)\n');
+    stream.markdown('4. Activa `corrector.reenviarACopilot` para usar el modo IA\n\n');
+    stream.markdown('💡 _Consejo: los modelos "mini" o "haiku" son más rápidos y consumen menos tokens._\n');
 }
 
 async function manejarComandoAgregar(texto: string, stream: vscode.ChatResponseStream): Promise<void> {

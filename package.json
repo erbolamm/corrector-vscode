@@ -1,8 +1,8 @@
 {
   "name": "corrector-copilot",
   "displayName": "Corrector — Asistente de escritura para Copilot Chat",
-  "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline, sin IA, sin internet. Motor integrado con 150+ reglas. Diseñado para personas con dislexia.",
-  "version": "0.1.2",
+  "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline por defecto (sin IA). Modo IA opcional. 150+ reglas. Diseñado para dislexia.",
+  "version": "0.2.0",
   "publisher": "Corrector",
   "author": {
     "name": "Javier Mateo (ApliArte)",
@@ -42,7 +42,29 @@
         "fullName": "Corrector Ortográfico",
         "name": "corrector",
         "description": "Corrige la ortografía de tus mensajes en español antes de enviarlos a Copilot",
-        "isSticky": true
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "ayuda",
+            "description": "Muestra la ayuda completa"
+          },
+          {
+            "name": "agregar",
+            "description": "Añade una regla al diccionario personal (error=correcto)"
+          },
+          {
+            "name": "ignorar",
+            "description": "Marca una palabra para no corregirla"
+          },
+          {
+            "name": "stats",
+            "description": "Muestra estadísticas de uso"
+          },
+          {
+            "name": "modelos",
+            "description": "Lista todos los modelos de IA disponibles en tu VS Code"
+          }
+        ]
       }
     ],
     "commands": [
@@ -87,7 +109,12 @@
         "corrector.reenviarACopilot": {
           "type": "boolean",
           "default": false,
-          "description": "Reenviar automáticamente el texto corregido a Copilot (experimental)"
+          "markdownDescription": "**Modo IA (opcional):** Si activas esta opción, cuando tu texto no tenga errores ortográficos se reenviará automáticamente al modelo de IA seleccionado y recibirás su respuesta directamente. \n\n⚠️ **Esto consume tokens** de tu plan (Premium Requests en Copilot, créditos en otros). Si tienes un plan limitado, úsalo con cuidado.\n\nPor defecto está **desactivado**: la corrección funciona 100% offline sin gastar tokens."
+        },
+        "corrector.modeloPreferido": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Modelo de IA preferido** para el reenvío automático. Déjalo vacío para elegir cada vez, o escribe el nombre/familia del modelo.\n\nEjemplos: `gpt-4o`, `gpt-4o-mini`, `claude-3.5-sonnet`, `claude-3-haiku`...\n\nUsa el comando `@corrector /modelos` en el chat para ver todos los modelos disponibles en tu VS Code."
         }
       }
     }

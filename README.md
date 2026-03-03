@@ -48,6 +48,16 @@ Con las correcciones detalladas:
 |--------|-------------|-------------|
 | `corrector.mostrarOriginal` | `true` | Mostrar el texto original junto a la corrección |
 | `corrector.mostrarExplicaciones` | `true` | Mostrar qué se corrigió y por qué |
+| `corrector.reenviarACopilot` | `false` | **Modo IA (opcional):** reenvía el texto sin errores directamente a Copilot. ⚠️ Consume tokens |
+
+### Dos modos de funcionamiento
+
+| Modo | Setting | Comportamiento | Coste |
+|------|---------|---------------|-------|
+| **Offline** (defecto) | `reenviarACopilot: false` | Corrige → muestra resultado → tú decides si envías a Copilot con el botón | **0 tokens** |
+| **IA** (opcional) | `reenviarACopilot: true` | Corrige → si no hay errores, reenvía automáticamente a Copilot y recibes su respuesta | **Consume tokens de tu plan** |
+
+> ⚠️ **El modo IA consume Premium Requests de GitHub Copilot.** Si tienes un plan limitado, úsalo con cuidado. La corrección ortográfica siempre es gratuita y offline.
 
 ## Reglas incluidas
 
@@ -85,6 +95,90 @@ npm run package
 ## Autor
 
 Javier Mateo (ApliArte) — [github.com/erbolamm](https://github.com/erbolamm)
+
+---
+
+### 💬 Una nota personal / A personal note
+
+<details>
+<summary>🇪🇸 Español</summary>
+
+Soy un desarrollador indie, sin estudios, que ha aprendido todo por su cuenta a base de esfuerzo y persistencia. Tengo dislexia y necesitaba un corrector así para poder comunicarme mejor con las herramientas de IA. Cuando lo tuve funcionando, pensé: ¿para qué tenerlo solo para mí?
+
+He decidido compartirlo con el mundo. Me ha costado mucho esfuerzo construir esto.
+
+Si te sirve y te ahorra tiempo, te agradecería mucho una ⭐ en GitHub y 5 estrellas en el Marketplace. Y si puedes, un pequeño donativo me ayudaría enormemente — soy padre de dos niños y cada euro cuenta para colegio, libros, comedor y alquiler.
+
+Gracias de corazón por usar Corrector.
+
+</details>
+
+<details>
+<summary>🇬🇧 English</summary>
+
+I'm an indie developer, self-taught, who learned everything from scratch through sheer effort and persistence. I have dyslexia and I needed a spell checker like this to communicate better with AI tools. When I got it working, I thought: why keep it just for myself?
+
+So I decided to share it with the world. Building this took a lot of effort.
+
+If it helps you, I'd really appreciate a ⭐ on GitHub and 5 stars on the Marketplace. And if you can, a small donation would help me enormously — I'm a father of two kids and every euro counts for school, books, meals, and rent.
+
+Thank you from the bottom of my heart for using Corrector.
+
+</details>
+
+<details>
+<summary>🇧🇷 Português</summary>
+
+Sou um desenvolvedor indie, autodidata, que aprendeu tudo do zero com muito esforço e persistência. Tenho dislexia e precisava de um corretor assim para me comunicar melhor com ferramentas de IA. Quando consegui fazer funcionar, pensei: por que guardar só para mim?
+
+Decidi compartilhar com o mundo. Construir isso me custou muito esforço.
+
+Se te ajudar, agradeceria muito uma ⭐ no GitHub e 5 estrelas no Marketplace. E se puder, uma pequena doação me ajudaria enormemente — sou pai de duas crianças e cada euro conta para escola, livros, alimentação e aluguel.
+
+Obrigado de coração por usar o Corrector.
+
+</details>
+
+<details>
+<summary>🇫🇷 Français</summary>
+
+Je suis un développeur indie, autodidacte, qui a tout appris par lui-même à force d'efforts et de persévérance. J'ai une dyslexie et j'avais besoin d'un correcteur comme celui-ci pour mieux communiquer avec les outils d'IA. Quand il a fonctionné, je me suis dit : pourquoi le garder pour moi seul ?
+
+J'ai décidé de le partager avec le monde. Construire cet outil m'a demandé beaucoup d'efforts.
+
+S'il vous est utile, je vous serais très reconnaissant de laisser une ⭐ sur GitHub et 5 étoiles sur le Marketplace. Et si vous le pouvez, un petit don m'aiderait énormément — je suis père de deux enfants et chaque euro compte pour l'école, les livres, la cantine et le loyer.
+
+Merci du fond du cœur d'utiliser Corrector.
+
+</details>
+
+<details>
+<summary>🇩🇪 Deutsch</summary>
+
+Ich bin ein Indie-Entwickler, Autodidakt, der sich alles selbst beigebracht hat — durch Anstrengung und Ausdauer. Ich habe Legasthenie und brauchte einen Korrektor wie diesen, um besser mit KI-Tools kommunizieren zu können. Als er funktionierte, dachte ich: Warum ihn nur für mich behalten?
+
+Ich habe mich entschlossen, ihn mit der Welt zu teilen. Dieses Tool zu bauen hat mich viel Mühe gekostet.
+
+Wenn es dir hilft, würde ich mich sehr über einen ⭐ auf GitHub und 5 Sterne im Marketplace freuen. Und wenn du kannst, würde mir eine kleine Spende enorm helfen — ich bin Vater von zwei Kindern und jeder Euro zählt für Schule, Bücher, Essen und Miete.
+
+Danke von ganzem Herzen, dass du Corrector benutzt.
+
+</details>
+
+<details>
+<summary>🇮🇹 Italiano</summary>
+
+Sono uno sviluppatore indie, autodidatta, che ha imparato tutto da zero con tanto impegno e perseveranza. Ho la dislessia e avevo bisogno di un correttore così per comunicare meglio con gli strumenti di IA. Quando ha funzionato, ho pensato: perché tenerlo solo per me?
+
+Ho deciso di condividerlo con il mondo. Costruire questo mi è costato molto sforzo.
+
+Se ti è utile, ti sarei molto grato per una ⭐ su GitHub e 5 stelle sul Marketplace. E se puoi, una piccola donazione mi aiuterebbe enormemente — sono padre di due bambini e ogni euro conta per scuola, libri, mensa e affitto.
+
+Grazie di cuore per usare Corrector.
+
+</details>
+
+---
 
 ## 💖 Apoya el proyecto
 
