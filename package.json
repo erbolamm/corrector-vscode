@@ -1,8 +1,8 @@
 {
   "name": "corrector-copilot",
   "displayName": "Corrector — Asistente de escritura para Copilot Chat",
-  "description": "Corrige la ortografía y gramática de tus mensajes en español dentro del chat de Copilot. Diseñado para personas con dislexia.",
-  "version": "0.1.0",
+  "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline, sin IA, sin internet. Motor integrado con 150+ reglas. Diseñado para personas con dislexia.",
+  "version": "0.1.2",
   "publisher": "Corrector",
   "author": {
     "name": "Javier Mateo (ApliArte)",

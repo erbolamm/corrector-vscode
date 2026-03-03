@@ -93,6 +93,18 @@ export function activate(context: vscode.ExtensionContext) {
         cmdPermitirSiempre
     );
 
+    // Mensaje de bienvenida la primera vez
+    const yaMostrado = context.globalState.get<boolean>('bienvenidaMostrada', false);
+    if (!yaMostrado) {
+        vscode.window.showInformationMessage(
+            '🔤 Corrector instalado — Escribe @corrector en el chat de Copilot. ' +
+            'La corrección es 100% offline, NO usa inteligencia artificial ni internet. ' +
+            'Motor integrado con 150+ reglas de español.',
+            'Entendido'
+        );
+        context.globalState.update('bienvenidaMostrada', true);
+    }
+
     console.log('[Corrector] Extensión activada — ' + motor.obtenerTotalReglas() + ' reglas cargadas');
 }
 
@@ -142,25 +154,28 @@ async function manejarMensajeChat(
     const mostrarExplicaciones = config.get<boolean>('mostrarExplicaciones', true);
 
     if (resultado.totalCorrecciones === 0) {
-        // Sin errores → reenviar directamente a Copilot
-        stream.markdown('✅ Texto correcto, enviando a Copilot...\n\n');
-        // Usar chatParticipant reference para reenviar
-        const chatModelo = await vscode.lm.selectChatModels({ family: 'gpt-4o' });
-        if (chatModelo.length > 0) {
-            const mensajes = [vscode.LanguageModelChatMessage.User(texto)];
-            const respuesta = await chatModelo[0].sendRequest(mensajes, {}, _token);
-            for await (const fragmento of respuesta.text) {
-                stream.markdown(fragmento);
-            }
-        } else {
-            // Fallback: copiar al input de chat
-            stream.markdown('> ' + texto + '\n\n');
-            stream.button({
-                command: 'corrector.enviarACopilot',
-                title: '🚀 Enviar a Copilot',
-                arguments: [texto],
-            });
-        }
+        // Sin errores → informar y ofrecer enviar a Copilot
+        // NOTA: La corrección es 100% offline, NO usa IA.
+        // El botón "Enviar a Copilot" simplemente abre el chat con el texto.
+        stream.markdown('✅ **Sin errores ortográficos.** Tu texto está bien escrito.\n\n');
+        stream.markdown('> ' + texto + '\n\n');
+        stream.markdown('---\n');
+        stream.markdown('💡 _La corrección se ha realizado **sin conexión a internet ni IA**. ' +
+            'El motor analiza tu texto con más de 150 reglas de español integradas en la extensión._\n\n');
+
+        // Botón para enviar a Copilot (usa comando interno, NO necesita IA)
+        stream.button({
+            command: 'corrector.enviarACopilot',
+            title: '🚀 Enviar a Copilot',
+            arguments: [texto],
+        });
+
+        // Botón para copiar
+        stream.button({
+            command: 'corrector.copiarTexto',
+            title: '📋 Copiar',
+            arguments: [texto],
+        });
     } else {
         // Recoger las palabras originales para el botón "Permitir siempre"
         const palabrasOriginales = resultado.correcciones.map(c => c.original);
@@ -184,6 +199,9 @@ async function manejarMensajeChat(
         }
 
         stream.markdown('\n');
+
+        stream.markdown('💡 _Corrección 100% offline — sin IA, sin internet. ' +
+            'Motor integrado con más de 150 reglas de español._\n\n');
 
         // Botón 1: Copiar
         stream.button({
