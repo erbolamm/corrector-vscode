@@ -1,0 +1,108 @@
+{
+  "name": "corrector-copilot",
+  "displayName": "Corrector — Asistente de escritura para Copilot Chat",
+  "description": "Corrige la ortografía y gramática de tus mensajes en español dentro del chat de Copilot. Diseñado para personas con dislexia.",
+  "version": "0.1.0",
+  "publisher": "Corrector",
+  "author": {
+    "name": "Javier Mateo (ApliArte)",
+    "url": "https://github.com/erbolamm"
+  },
+  "license": "MIT",
+  "homepage": "https://apliarte-click-pro-2026.web.app/",
+  "sponsor": {
+    "url": "https://ko-fi.com/C0C11TWR1K"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erbolamm/corrector-vscode"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "español",
+    "corrector",
+    "ortografía",
+    "dislexia",
+    "copilot",
+    "chat"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "icon": "icon.png",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "corrector.corrector",
+        "fullName": "Corrector Ortográfico",
+        "name": "corrector",
+        "description": "Corrige la ortografía de tus mensajes en español antes de enviarlos a Copilot",
+        "isSticky": true
+      }
+    ],
+    "commands": [
+      {
+        "command": "corrector.agregarPalabra",
+        "title": "Corrector: Agregar palabra al diccionario personal"
+      },
+      {
+        "command": "corrector.verDiccionario",
+        "title": "Corrector: Ver diccionario personal"
+      },
+      {
+        "command": "corrector.estadisticas",
+        "title": "Corrector: Ver estadísticas de correcciones"
+      },
+      {
+        "command": "corrector.copiarTexto",
+        "title": "Corrector: Copiar texto corregido"
+      },
+      {
+        "command": "corrector.enviarACopilot",
+        "title": "Corrector: Enviar texto corregido a Copilot"
+      },
+      {
+        "command": "corrector.permitirSiempre",
+        "title": "Corrector: Permitir siempre estas palabras"
+      }
+    ],
+    "configuration": {
+      "title": "Corrector Ortográfico",
+      "properties": {
+        "corrector.mostrarOriginal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar el texto original junto con la corrección"
+        },
+        "corrector.mostrarExplicaciones": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar qué se corrigió y por qué"
+        },
+        "corrector.reenviarACopilot": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reenviar automáticamente el texto corregido a Copilot (experimental)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.93.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0",
+    "@vscode/vsce": "^3.0.0"
+  }
+}
