@@ -217,6 +217,21 @@ const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> =
     ['comadno', { corregido: 'comando', regla: 'transposición: comando' }],
     ['comadndo', { corregido: 'comando', regla: 'transposición: comando' }],
 
+    // ── Tecla repetida / doble letra incorrecta ──
+    ['estroo', { corregido: 'esto', regla: 'doble letra + r extra: esto' }],
+    ['estoo', { corregido: 'esto', regla: 'doble letra: esto' }],
+    ['esoo', { corregido: 'eso', regla: 'doble letra: eso' }],
+    ['estee', { corregido: 'este', regla: 'doble letra: este' }],
+    ['estaa', { corregido: 'esta', regla: 'doble letra: esta' }],
+
+    // ── Q pegada a la siguiente palabra (error de espacio) ──
+    ['qcomo', { corregido: 'cómo', regla: 'q pegada + tilde: cómo' }],
+    ['qtal', { corregido: 'qué tal', regla: 'q pegada: qué tal' }],
+    ['qpasa', { corregido: 'qué pasa', regla: 'q pegada: qué pasa' }],
+    ['qhaces', { corregido: 'qué haces', regla: 'q pegada: qué haces' }],
+    ['qdices', { corregido: 'qué dices', regla: 'q pegada: qué dices' }],
+    ['qhago', { corregido: 'qué hago', regla: 'q pegada: qué hago' }],
+
     // ── Verbos comunes mal escritos ──
     ['aganmos', { corregido: 'hagamos', regla: 'transposición + h: hagamos' }],
     ['agamos', { corregido: 'hagamos', regla: 'h omitida: hagamos' }],
@@ -1001,7 +1016,8 @@ export class MotorCorrector {
 
         // Si la palabra completa es fuzzy-similar a una palabra conocida, no segmentar
         // (ej: "automática" es similar a "automático" — no hay que partirla)
-        const distMaxCompleta = n >= 7 ? 2 : 1;
+        // Usar distancia 2 siempre para la palabra completa (evitar segmentaciones absurdas)
+        const distMaxCompleta = 2;
         const fuzzyCompleta = this.buscarFuzzy(lower, distMaxCompleta);
         if (fuzzyCompleta) { return null; }
 

@@ -2,7 +2,7 @@
   "name": "corrector-copilot",
   "displayName": "Corrector — Asistente de escritura para Copilot Chat",
   "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline por defecto (sin IA). Modo IA opcional. 150+ reglas. Diseñado para dislexia.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "Corrector",
   "author": {
     "name": "Javier Mateo (ApliArte)",
@@ -95,6 +95,10 @@
       {
         "command": "corrector.toggleEditor",
         "title": "Corrector: Activar/Desactivar corrección en el editor"
+      },
+      {
+        "command": "corrector.toggleFuente",
+        "title": "Corrector: Activar/Desactivar fuente OpenDyslexic"
       }
     ],
     "configuration": {
@@ -119,6 +123,12 @@
           "type": "string",
           "default": "",
           "markdownDescription": "**Modelo de IA preferido** para el reenvío automático. Déjalo vacío para elegir cada vez, o escribe el nombre/familia del modelo.\n\nEjemplos: `gpt-4o`, `gpt-4o-mini`, `claude-3.5-sonnet`, `claude-3-haiku`...\n\nUsa el comando `@corrector /modelos` en el chat para ver todos los modelos disponibles en tu VS Code."
+        },
+        "corrector.fuenteDislexia": {
+          "type": "string",
+          "default": "desactivada",
+          "enum": ["desactivada", "editor", "terminal", "ambos"],
+          "markdownDescription": "**Fuente OpenDyslexic:** Activa la fuente OpenDyslexic diseñada para facilitar la lectura a personas con dislexia.\n\n- `desactivada` — Fuente por defecto\n- `editor` — Solo en el editor de código\n- `terminal` — Solo en el terminal\n- `ambos` — Editor + Terminal\n\n[Descargar OpenDyslexic](https://opendyslexic.org/) (debe estar instalada en tu sistema)."
         },
         "corrector.corregirEnEditor": {
           "type": "boolean",

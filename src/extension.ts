@@ -119,6 +119,77 @@ export function activate(context: vscode.ExtensionContext) {
         analizarDocumento(vscode.window.activeTextEditor.document);
     }
 
+    // ─── FUENTE OPENDYSLEXIC ────────────────────────────────────────────
+    const cmdToggleFuente = vscode.commands.registerCommand(
+        'corrector.toggleFuente',
+        async () => {
+            const config = vscode.workspace.getConfiguration('corrector');
+            const opcion = config.get<string>('fuenteDislexia', 'desactivada');
+            const estaActiva = opcion !== 'desactivada';
+
+            if (estaActiva) {
+                // Desactivar: restaurar fuentes originales
+                const fuenteOriginalEditor = contextoGlobal.globalState.get<string>('fuenteOriginalEditor', '');
+                const fuenteOriginalTerminal = contextoGlobal.globalState.get<string>('fuenteOriginalTerminal', '');
+                const editorConfig = vscode.workspace.getConfiguration('editor');
+                const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+
+                if (fuenteOriginalEditor) {
+                    await editorConfig.update('fontFamily', fuenteOriginalEditor, vscode.ConfigurationTarget.Global);
+                } else {
+                    await editorConfig.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
+                }
+                if (fuenteOriginalTerminal) {
+                    await terminalConfig.update('fontFamily', fuenteOriginalTerminal, vscode.ConfigurationTarget.Global);
+                } else {
+                    await terminalConfig.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
+                }
+
+                await config.update('fuenteDislexia', 'desactivada', vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('Corrector: Fuente OpenDyslexic DESACTIVADA — fuente original restaurada');
+            } else {
+                // Activar: preguntar dónde
+                const donde = await vscode.window.showQuickPick(
+                    [
+                        { label: 'Solo editor', description: 'Cambia la fuente del editor de código', value: 'editor' },
+                        { label: 'Solo terminal', description: 'Cambia la fuente del terminal', value: 'terminal' },
+                        { label: 'Editor + Terminal', description: 'Cambia ambas fuentes', value: 'ambos' },
+                    ],
+                    { placeHolder: '¿Dónde quieres usar OpenDyslexic?' }
+                );
+                if (!donde) { return; }
+
+                const editorConfig = vscode.workspace.getConfiguration('editor');
+                const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+                const FUENTE = '"OpenDyslexic", monospace';
+
+                // Guardar fuentes actuales
+                const fuenteActualEditor = editorConfig.get<string>('fontFamily', '');
+                const fuenteActualTerminal = terminalConfig.get<string>('fontFamily', '');
+                await contextoGlobal.globalState.update('fuenteOriginalEditor', fuenteActualEditor);
+                await contextoGlobal.globalState.update('fuenteOriginalTerminal', fuenteActualTerminal);
+
+                if (donde.value === 'editor' || donde.value === 'ambos') {
+                    await editorConfig.update('fontFamily', FUENTE, vscode.ConfigurationTarget.Global);
+                }
+                if (donde.value === 'terminal' || donde.value === 'ambos') {
+                    await terminalConfig.update('fontFamily', FUENTE, vscode.ConfigurationTarget.Global);
+                }
+
+                await config.update('fuenteDislexia', donde.value, vscode.ConfigurationTarget.Global);
+
+                const msg = await vscode.window.showInformationMessage(
+                    'Corrector: Fuente OpenDyslexic ACTIVADA 🟢 — ' +
+                    'Si no la ves, asegúrate de tenerla instalada en tu sistema.',
+                    'Descargar OpenDyslexic'
+                );
+                if (msg === 'Descargar OpenDyslexic') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://opendyslexic.org/'));
+                }
+            }
+        }
+    );
+
     // Comando: enviar texto corregido directamente a Copilot
     const cmdEnviarACopilot = vscode.commands.registerCommand(
         'corrector.enviarACopilot',
@@ -154,6 +225,7 @@ export function activate(context: vscode.ExtensionContext) {
         cmdEnviarACopilot,
         cmdPermitirSiempre,
         cmdToggleEditor,
+        cmdToggleFuente,
         diagnosticos,
         onDidChange,
         onDidChangeEditor,
