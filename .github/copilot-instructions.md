@@ -122,3 +122,55 @@ Cada idea que aporte Javier se trata con máxima seriedad. Responder siempre en 
 - **v0.1.1** — Bump de versión por conflicto en Marketplace
 - **v0.1.2** — Eliminada dependencia de IA (quitado `vscode.lm.selectChatModels`). 100% offline sin diálogos de permisos
 - **v0.2.0** — IA restaurada como OPCIONAL (`reenviarACopilot`, default false). Selector dinámico de modelos. Comando `/modelos`. Nota personal en 6 idiomas. Links de donación
+
+---
+
+## BUGS CONOCIDOS Y GAPS DEL MOTOR (revisión 2026-03-03)
+
+### Bugs funcionales confirmados
+
+**BUG-1: Estadísticas se pierden al reiniciar VS Code**
+- `guardarDatos()` en `extension.ts` sí persiste `mensajesCorregidos` y `totalCorrecciones`
+- `cargarDatosGuardados()` NUNCA los restaura, el motor siempre arranca con ceros
+- FIX: añadir lectura del objeto `estadisticas` en `cargarDatosGuardados()`
+
+**BUG-2: Lógica anti-doble-corrección incorrecta**
+- En `corrector.ts` en `aplicarReglasPatron()`, la condición `c.corregido === match` debería ser `c.original === match`
+- Efecto: algunas correcciones de patrones fonéticos se saltan incorrectamente
+
+**BUG-3: Entrada duplicada en CORRECCIONES_DIRECTAS**
+- `'yegar'` aparece dos veces en el Map. La segunda sobreescribe silenciosamente.
+
+**BUG-4: Entradas inútiles en el diccionario**
+- `'abrir'`, `'llegar'`, `'consejo'` tienen `corregido === error`, nunca hacen nada.
+
+### Falsos positivos conocidos (alta frecuencia)
+
+- `mas` se corrige a `más` pero `mas` es conjunción adversativa válida ("mas no lo hizo")
+- `ay` se corrige a `hay` pero `¡Ay!` es interjección válida
+- `q` (patrón fonético) se corrige a `que` pero es variable habitual en código, física, matemáticas
+
+### Gaps en el diccionario (palabras que faltan, confirmadas con uso real)
+
+Evidencia visual de fallo documentado — captura 2026-03-03:
+- Entrada: `ola gue tal ertas`
+- Salida real: `hola gue tal ertas` ("gue" y "ertas" NO se corrigen)
+- Esperado: `hola que tal estas`
+
+Palabras que hay que añadir:
+- `gue` -> `que` (g->q: tecla adyacente en teclado, error típico dislexia)
+- `ertas` -> `estas` (transposición: e-r-t-a-s -> e-s-t-a-s)
+- `biene` -> `viene` (b->v: viene)
+- `bienen` -> `vienen` (b->v: vienen)
+- `abeces` -> `a veces` (b->v + separación)
+- `hayga` -> `haya` (ultracorrección habitual)
+- `estava` -> `estaba` (v->b: estaba)
+- `estavamos` -> `estábamos` (v->b + tilde)
+
+### Prioridad para v0.2.1
+
+1. Corregir BUG-1 (estadísticas) y BUG-2 (anti-doble-corrección)
+2. Añadir las palabras de la lista de gaps
+3. Revisar falsos positivos `mas` y `ay` (posible eliminación)
+4. Limpiar entradas duplicadas/vacías del diccionario
+5. Tests unitarios con los casos de fallo documentados aquí

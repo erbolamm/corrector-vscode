@@ -1,5 +1,7 @@
 # Corrector — Asistente de escritura para Copilot Chat
 
+> 🇪🇸 **Este corrector funciona SOLO en español.** Detecta y corrige errores ortográficos del idioma español. No corrige otros idiomas.
+
 Extensión de VS Code que corrige la ortografía y gramática en español dentro del chat de GitHub Copilot.
 
 Diseñada especialmente para personas con dislexia. Funciona 100% offline, sin dependencias externas.
@@ -98,7 +100,11 @@ Javier Mateo (ApliArte) — [github.com/erbolamm](https://github.com/erbolamm)
 
 ---
 
-### 💬 Una nota personal / A personal note
+### 💬 Una nota personal del autor / A personal note from the author
+
+> ℹ️ **Nota:** El texto siguiente es un mensaje personal del autor, escrito en varios idiomas para que pueda leerlo gente de todo el mundo. Esto **no significa** que el corrector funcione en esos idiomas — el motor de corrección es exclusivamente para **español**.
+
+> ℹ️ **Note:** The text below is a personal message from the author, written in several languages so people around the world can read it. This does **not** mean the corrector works in those languages — the correction engine is exclusively for **Spanish**.
 
 <details>
 <summary>🇪🇸 Español</summary>

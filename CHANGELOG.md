@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.1] — 2026-03-03
+
+### Añadido
+- Soporte bilingüe completo: el corrector detecta automáticamente si el texto es español o inglés
+- Diccionario inglés con 110+ reglas (transposiciones, ie/ei, doble letra, letras mudas, fonética, ortografía, términos técnicos)
+- Patrones fonéticos en inglés: abreviaturas de chat (u→you, r→are, b4→before, thx→thanks, tmr→tomorrow, idk, btw, imo)
+- Indicador de idioma detectado en la cabecera de respuesta del chat (🇬🇧 English / 🇪🇸 Español)
+- Suite de tests completa: 83 tests automatizados (18 suites) para español e inglés
+- Infraestructura de testing con Node.js test runner nativo (sin dependencias externas)
+
+### Arreglado
+- BUG-1: Las estadísticas de uso ya se restauran correctamente al reiniciar VS Code
+- BUG-2: Lógica anti-doble-corrección incorrecta (`c.corregido === match` → `c.original === match`)
+- BUG-3: Entrada duplicada de `yegar` en el diccionario eliminada
+- BUG-4: Entradas inútiles (`abrir`, `llegar`, `consejo`) eliminadas del diccionario
+- Palabras del diccionario ampliadas con errores reales documentados: `gue→que`, `ertas→estas`, `biene→viene`, `bienen→vienen`, `abeces→a veces`, `hayga→haya`, `estava→estaba`, `estavamos→estábamos`
+- Sección `g→q` añadida al diccionario (tecla adyacente, error típico de dislexia)
+
+### Cambiado
+- Cabecera de respuesta rediseñada: siempre visible, muestra modo y idioma detectado
+- Encabezado de texto corregido en H2 con número de correcciones
+- El modo IA con correcciones ahora envía el texto ya corregido al modelo de IA
+- README: clarificación explícita de que el corrector funciona solo en español (antes de la nota personal)
+
 ## [0.2.0] — 2026-03-03
 
 ### Añadido

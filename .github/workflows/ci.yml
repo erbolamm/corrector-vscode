@@ -1,0 +1,51 @@
+# CI/CD — Corrector Ortográfico para VS Code
+# Ejecuta tests y build en cada push y PR.
+#
+# Autor: Javier Mateo (ApliArte)
+
+name: CI — Build & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar TypeScript
+        run: npm run compile
+
+      - name: Ejecutar tests
+        run: npm test
+
+      - name: Empaquetar .vsix (solo Node 22)
+        if: matrix.node-version == 22
+        run: npx @vscode/vsce package --no-dependencies
+        
+      - name: Subir artefacto .vsix
+        if: matrix.node-version == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: corrector-vsix
+          path: '*.vsix'
+          retention-days: 30

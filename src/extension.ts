@@ -15,6 +15,9 @@ import { MotorCorrector, ResultadoCorreccion } from './corrector';
 
 let motor: MotorCorrector;
 let contextoGlobal: vscode.ExtensionContext;
+let diagnosticos: vscode.DiagnosticCollection;
+let diagnosticosActivos = false;
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     contextoGlobal = context;
@@ -57,6 +60,65 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // ─── DIAGNÓSTICOS EN EL EDITOR ───────────────────────────────────────
+    diagnosticos = vscode.languages.createDiagnosticCollection('corrector');
+    diagnosticosActivos = vscode.workspace.getConfiguration('corrector').get<boolean>('corregirEnEditor', false);
+
+    // Comando: activar/desactivar corrección en editor
+    const cmdToggleEditor = vscode.commands.registerCommand(
+        'corrector.toggleEditor',
+        async () => {
+            diagnosticosActivos = !diagnosticosActivos;
+            // Persistir la preferencia
+            await vscode.workspace.getConfiguration('corrector').update(
+                'corregirEnEditor', diagnosticosActivos, vscode.ConfigurationTarget.Global
+            );
+            if (diagnosticosActivos) {
+                vscode.window.showInformationMessage('Corrector: Corrección en editor ACTIVADA 🟢');
+                // Analizar documento activo inmediatamente
+                if (vscode.window.activeTextEditor) {
+                    analizarDocumento(vscode.window.activeTextEditor.document);
+                }
+            } else {
+                diagnosticos.clear();
+                vscode.window.showInformationMessage('Corrector: Corrección en editor DESACTIVADA 🔴');
+            }
+        }
+    );
+
+    // Listener: analizar documento al cambiar
+    const onDidChange = vscode.workspace.onDidChangeTextDocument(event => {
+        if (!diagnosticosActivos) { return; }
+        // Debounce: esperar 500ms después del último cambio
+        if (debounceTimer) { clearTimeout(debounceTimer); }
+        debounceTimer = setTimeout(() => {
+            analizarDocumento(event.document);
+        }, 500);
+    });
+
+    // Listener: analizar al cambiar de pestaña
+    const onDidChangeEditor = vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (!diagnosticosActivos || !editor) { return; }
+        analizarDocumento(editor.document);
+    });
+
+    // Listener: reaccionar a cambios del setting
+    const onDidChangeConfig = vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('corrector.corregirEnEditor')) {
+            diagnosticosActivos = vscode.workspace.getConfiguration('corrector').get<boolean>('corregirEnEditor', false);
+            if (!diagnosticosActivos) {
+                diagnosticos.clear();
+            } else if (vscode.window.activeTextEditor) {
+                analizarDocumento(vscode.window.activeTextEditor.document);
+            }
+        }
+    });
+
+    // Analizar el documento activo al arrancar (si está activo)
+    if (diagnosticosActivos && vscode.window.activeTextEditor) {
+        analizarDocumento(vscode.window.activeTextEditor.document);
+    }
+
     // Comando: enviar texto corregido directamente a Copilot
     const cmdEnviarACopilot = vscode.commands.registerCommand(
         'corrector.enviarACopilot',
@@ -90,7 +152,12 @@ export function activate(context: vscode.ExtensionContext) {
         cmdEstadisticas,
         cmdCopiarTexto,
         cmdEnviarACopilot,
-        cmdPermitirSiempre
+        cmdPermitirSiempre,
+        cmdToggleEditor,
+        diagnosticos,
+        onDidChange,
+        onDidChangeEditor,
+        onDidChangeConfig
     );
 
     // Mensaje de bienvenida la primera vez
@@ -161,17 +228,24 @@ async function manejarMensajeChat(
 
     const reenviarIA = config.get<boolean>('reenviarACopilot', false);
 
+    // ── CABECERA DE MODO (siempre visible, primera línea) ──
+    const idiomaLabel = resultado.idioma === 'en' ? '🇬🇧 English' : '🇪🇸 Español';
+    if (reenviarIA) {
+        stream.markdown('> 🤖 **Modo IA** · ' + idiomaLabel + ' · ⚠️ _consume tokens_\n\n');
+    } else {
+        stream.markdown('> 🔌 **Modo offline** · ' + idiomaLabel + ' · sin IA · sin internet · 250+ reglas\n\n');
+    }
+
     if (resultado.totalCorrecciones === 0) {
         // Sin errores ortográficos
         if (reenviarIA) {
             // ── MODO IA: reenviar directamente a Copilot ──
             stream.markdown('✅ **Sin errores ortográficos** — reenviando a Copilot...\n\n');
-            stream.markdown('⚠️ _Modo IA activado: este reenvío **consume tokens** de tu plan de Copilot. ' +
-                'Puedes desactivarlo en Ajustes → `corrector.reenviarACopilot`._\n\n');
             try {
                 const modeloSeleccionado = await seleccionarModelo(config, stream);
                 if (modeloSeleccionado) {
-                    stream.markdown('🤖 _Usando modelo: **' + modeloSeleccionado.name + '** (' + modeloSeleccionado.vendor + ')_\n\n');
+                    stream.markdown('_Modelo: **' + modeloSeleccionado.name + '** (' + modeloSeleccionado.vendor + ')_\n\n');
+                    stream.markdown('---\n\n');
                     const mensajes = [vscode.LanguageModelChatMessage.User(texto)];
                     const respuesta = await modeloSeleccionado.sendRequest(mensajes, {}, _token);
                     for await (const fragmento of respuesta.text) {
@@ -179,9 +253,8 @@ async function manejarMensajeChat(
                     }
                 } else {
                     // Sin modelo disponible → fallback a botones
-                    stream.markdown('⚠️ No se encontró ningún modelo de IA disponible. ' +
-                        'Asegúrate de tener GitHub Copilot u otra extensión de IA activa.\n\n');
-                    stream.markdown('💡 _Usa `@corrector /modelos` para ver los modelos disponibles._\n\n');
+                    stream.markdown('⚠️ **No se encontró ningún modelo de IA disponible.**\n\n');
+                    stream.markdown('Asegúrate de tener GitHub Copilot activo, o usa `@corrector /modelos` para ver qué hay disponible.\n\n');
                     stream.markdown('> ' + texto + '\n\n');
                     stream.button({
                         command: 'corrector.enviarACopilot',
@@ -190,7 +263,7 @@ async function manejarMensajeChat(
                     });
                 }
             } catch (err) {
-                stream.markdown('⚠️ Error al conectar con Copilot: ' + String(err) + '\n\n');
+                stream.markdown('⚠️ **Error al conectar con Copilot:** ' + String(err) + '\n\n');
                 stream.markdown('> ' + texto + '\n\n');
                 stream.button({
                     command: 'corrector.enviarACopilot',
@@ -199,23 +272,18 @@ async function manejarMensajeChat(
                 });
             }
         } else {
-            // ── MODO OFFLINE (por defecto): solo informar + botones ──
-            stream.markdown('✅ **Sin errores ortográficos.** Tu texto está bien escrito.\n\n');
+            // ── MODO OFFLINE (por defecto): sin errores ──
+            stream.markdown('✅ **Sin errores ortográficos** — tu texto está bien escrito.\n\n');
             stream.markdown('> ' + texto + '\n\n');
-            stream.markdown('---\n');
-            stream.markdown('💡 _Corrección 100% offline — sin IA, sin internet. ' +
-                'Motor integrado con más de 150 reglas de español._\n\n');
-            stream.markdown('💬 _¿Quieres que el texto pase directo a Copilot cuando no tenga errores? ' +
-                'Activa `corrector.reenviarACopilot` en Ajustes (⚠️ consume tokens)._\n\n');
+            stream.markdown('---\n\n');
+            stream.markdown('_¿Quieres que pase directo a la IA cuando no tenga errores? ' +
+                'Activa `corrector.reenviarACopilot` en Ajustes. ⚠️ Consume tokens._\n\n');
 
-            // Botón para enviar a Copilot (abre el chat, NO usa IA)
             stream.button({
                 command: 'corrector.enviarACopilot',
                 title: '🚀 Enviar a Copilot',
                 arguments: [texto],
             });
-
-            // Botón para copiar
             stream.button({
                 command: 'corrector.copiarTexto',
                 title: '📋 Copiar',
@@ -223,58 +291,67 @@ async function manejarMensajeChat(
             });
         }
     } else {
-        // Recoger las palabras originales para el botón "Permitir siempre"
+        // ── HAY CORRECCIONES ──
         const palabrasOriginales = resultado.correcciones.map(c => c.original);
+        const n = resultado.totalCorrecciones;
+        const label = n === 1 ? '1 corrección' : n + ' correcciones';
 
-        // Mostrar texto corregido
-        stream.markdown('📝 **Texto corregido** (' + resultado.totalCorrecciones + ' corrección' + (resultado.totalCorrecciones > 1 ? 'es' : '') + '):\n\n');
+        // Texto corregido (protagonista)
+        stream.markdown('## ✏️ Texto corregido · ' + label + '\n\n');
         stream.markdown('> ' + resultado.textoCorregido + '\n\n');
 
-        // Mostrar original si está configurado
+        // Original + detalle de cambios
+        if (mostrarOriginal || mostrarExplicaciones) {
+            stream.markdown('---\n\n');
+        }
+
         if (mostrarOriginal) {
-            stream.markdown('---\n');
-            stream.markdown('🔍 **Original:** ' + resultado.textoOriginal + '\n\n');
+            stream.markdown('**Original:** `' + resultado.textoOriginal + '`\n\n');
         }
 
-        // Mostrar explicaciones si está configurado
         if (mostrarExplicaciones && resultado.correcciones.length > 0) {
-            stream.markdown('📋 **Correcciones aplicadas:**\n\n');
+            stream.markdown('**Cambios aplicados:**\n\n');
             for (const c of resultado.correcciones) {
-                stream.markdown('- ~~' + c.original + '~~ → **' + c.corregido + '** _(' + c.regla + ')_\n');
+                stream.markdown('- ~~' + c.original + '~~ → **' + c.corregido + '** — _' + c.regla + '_\n');
             }
+            stream.markdown('\n');
         }
 
-        stream.markdown('\n');
-
-        stream.markdown('💡 _Corrección 100% offline — sin IA, sin internet. ' +
-            'Motor integrado con más de 150 reglas de español._\n\n');
-
-        // Botón 1: Copiar
+        // Botones de acción
         stream.button({
             command: 'corrector.copiarTexto',
-            title: '📋 Copiar',
+            title: '📋 Copiar texto corregido',
             arguments: [resultado.textoCorregido],
         });
-
-        // Botón 2: Enviar a Copilot
         stream.button({
             command: 'corrector.enviarACopilot',
             title: '🚀 Enviar a Copilot',
             arguments: [resultado.textoCorregido],
         });
-
-        // Botón 3: Permitir siempre
         stream.button({
             command: 'corrector.permitirSiempre',
             title: '✅ Permitir siempre',
             arguments: [palabrasOriginales],
         });
 
-        // Si modo IA está activado, ofrecer reenvío directo
+        // Si modo IA está activo, reenviar el texto ya corregido
         if (reenviarIA) {
-            stream.markdown('\n---\n');
-            stream.markdown('⚠️ _Modo IA activado: puedes reenviar el texto corregido directamente ' +
-                'a Copilot (consume tokens). Desactívalo en `corrector.reenviarACopilot`._\n');
+            stream.markdown('\n---\n\n');
+            stream.markdown('🤖 **Modo IA activo** — reenviando el texto **corregido** a Copilot...\n\n');
+            try {
+                const modeloSeleccionado = await seleccionarModelo(config, stream);
+                if (modeloSeleccionado) {
+                    stream.markdown('_Modelo: **' + modeloSeleccionado.name + '** (' + modeloSeleccionado.vendor + ')_\n\n');
+                    stream.markdown('---\n\n');
+                    const mensajes = [vscode.LanguageModelChatMessage.User(resultado.textoCorregido)];
+                    const respuesta = await modeloSeleccionado.sendRequest(mensajes, {}, _token);
+                    for await (const fragmento of respuesta.text) {
+                        stream.markdown(fragmento);
+                    }
+                }
+            } catch (err) {
+                stream.markdown('⚠️ _Error al reenviar a Copilot: ' + String(err) + '_\n');
+            }
         }
     }
 
@@ -565,6 +642,12 @@ function cargarDatosGuardados(): void {
         motor.cargarPalabrasIgnoradas(ignoradas);
     }
 
+    // Estadísticas acumuladas
+    const stats = contextoGlobal.globalState.get<{ mensajesCorregidos: number; totalCorrecciones: number }>('estadisticas');
+    if (stats) {
+        motor.cargarEstadisticas(stats.mensajesCorregidos, stats.totalCorrecciones);
+    }
+
     console.log('[Corrector] Datos cargados — Diccionario personal: ' +
         (diccionario ? Object.keys(diccionario).length : 0) + ' entradas');
 }
@@ -574,5 +657,139 @@ export function deactivate() {
     if (motor && contextoGlobal) {
         guardarDatos();
     }
+    if (diagnosticos) {
+        diagnosticos.clear();
+    }
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
     console.log('[Corrector] Extensión desactivada');
+}
+
+// ─── DIAGNÓSTICOS EN EL EDITOR ─────────────────────────────────────────────
+
+/**
+ * Idiomas de archivo donde tiene sentido buscar errores en comentarios y strings.
+ */
+const LENGUAJES_SOPORTADOS = new Set([
+    'javascript', 'typescript', 'javascriptreact', 'typescriptreact',
+    'python', 'java', 'csharp', 'c', 'cpp', 'go', 'rust', 'php', 'ruby',
+    'swift', 'kotlin', 'dart', 'scala', 'r', 'lua', 'perl', 'shell',
+    'shellscript', 'bash', 'zsh', 'powershell',
+    'html', 'css', 'scss', 'less', 'vue', 'svelte', 'astro',
+    'json', 'jsonc', 'yaml', 'toml', 'xml',
+    'markdown', 'plaintext', 'restructuredtext', 'latex', 'tex',
+    'gitcommit', 'properties', 'ini', 'dockerfile',
+]);
+
+/**
+ * Extrae los fragmentos de texto corregible de un documento:
+ * - En archivos de código: comentarios y strings
+ * - En markdown/plaintext: todo el contenido
+ */
+function extraerFragmentosCorregibles(
+    document: vscode.TextDocument
+): Array<{ texto: string; rango: vscode.Range }> {
+    const fragmentos: Array<{ texto: string; rango: vscode.Range }> = [];
+    const langId = document.languageId;
+    const texto = document.getText();
+
+    // Para markdown, plaintext, gitcommit: analizar todo
+    if (['markdown', 'plaintext', 'restructuredtext', 'gitcommit'].includes(langId)) {
+        for (let i = 0; i < document.lineCount; i++) {
+            const linea = document.lineAt(i);
+            if (linea.text.trim().length > 0) {
+                fragmentos.push({ texto: linea.text, rango: linea.range });
+            }
+        }
+        return fragmentos;
+    }
+
+    // Para archivos de código: extraer comentarios y strings
+    // Regex que captura comentarios de línea, bloque y strings
+    const patrones = [
+        // Comentarios // ...
+        /\/\/\s*(.+)$/gm,
+        // Comentarios # ... (Python, Ruby, Shell)
+        /^\s*#\s*(.+)$/gm,
+        // Comentarios de bloque /* ... */ (multilínea)
+        /\/\*([\s\S]*?)\*\//g,
+        // Strings entre comillas simples (multiletter)
+        /'([^']{3,})'/g,
+        // Strings entre comillas dobles (multiletter)
+        /"([^"]{3,})"/g,
+        // Template literals
+        /`([^`]{3,})`/g,
+        // Docstrings Python """..."""
+        /"""([\s\S]*?)"""/g,
+        // Comentarios HTML/XML <!-- ... -->
+        /<!--([\s\S]*?)-->/g,
+    ];
+
+    for (const patron of patrones) {
+        let match;
+        while ((match = patron.exec(texto)) !== null) {
+            const contenido = match[1] || match[0];
+            const startPos = document.positionAt(match.index);
+            const endPos = document.positionAt(match.index + match[0].length);
+
+            // Solo añadir si tiene al menos una letra
+            if (/[a-záéíóúüñ]/i.test(contenido)) {
+                fragmentos.push({
+                    texto: contenido,
+                    rango: new vscode.Range(startPos, endPos),
+                });
+            }
+        }
+    }
+
+    return fragmentos;
+}
+
+/**
+ * Analiza un documento buscando errores ortográficos
+ * y los muestra como diagnósticos (subrayados) en el editor.
+ */
+function analizarDocumento(document: vscode.TextDocument): void {
+    if (!LENGUAJES_SOPORTADOS.has(document.languageId)) {
+        diagnosticos.delete(document.uri);
+        return;
+    }
+
+    const fragmentos = extraerFragmentosCorregibles(document);
+    const nuevos: vscode.Diagnostic[] = [];
+
+    for (const fragmento of fragmentos) {
+        const resultado = motor.corregir(fragmento.texto);
+
+        for (const correccion of resultado.correcciones) {
+            // Buscar la posición exacta de la palabra original en el fragmento
+            const textoFragmento = fragmento.texto;
+            const offsetEnFragmento = textoFragmento.toLowerCase().indexOf(
+                correccion.original.toLowerCase()
+            );
+            if (offsetEnFragmento === -1) { continue; }
+
+            // Calcular la posición absoluta en el documento
+            const fragmentoOffset = document.offsetAt(fragmento.rango.start);
+            const absStart = fragmentoOffset + offsetEnFragmento;
+            const absEnd = absStart + correccion.original.length;
+
+            const range = new vscode.Range(
+                document.positionAt(absStart),
+                document.positionAt(absEnd)
+            );
+
+            const diag = new vscode.Diagnostic(
+                range,
+                `¿Quisiste decir "${correccion.corregido}"? (${correccion.regla})`,
+                vscode.DiagnosticSeverity.Information
+            );
+            diag.source = 'Corrector';
+            diag.code = 'corrector-ortografia';
+            nuevos.push(diag);
+        }
+    }
+
+    diagnosticos.set(document.uri, nuevos);
 }

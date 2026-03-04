@@ -1,7 +1,10 @@
 .vscode/**
 node_modules/**
 src/**
+test/**
 tsconfig.json
+tsconfig.test.json
+out-test/**
 .gitignore
 out/**/*.map
 out/**/*.d.ts

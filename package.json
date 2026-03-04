@@ -2,7 +2,7 @@
   "name": "corrector-copilot",
   "displayName": "Corrector — Asistente de escritura para Copilot Chat",
   "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline por defecto (sin IA). Modo IA opcional. 150+ reglas. Diseñado para dislexia.",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "publisher": "Corrector",
   "author": {
     "name": "Javier Mateo (ApliArte)",
@@ -91,6 +91,10 @@
       {
         "command": "corrector.permitirSiempre",
         "title": "Corrector: Permitir siempre estas palabras"
+      },
+      {
+        "command": "corrector.toggleEditor",
+        "title": "Corrector: Activar/Desactivar corrección en el editor"
       }
     ],
     "configuration": {
@@ -115,6 +119,11 @@
           "type": "string",
           "default": "",
           "markdownDescription": "**Modelo de IA preferido** para el reenvío automático. Déjalo vacío para elegir cada vez, o escribe el nombre/familia del modelo.\n\nEjemplos: `gpt-4o`, `gpt-4o-mini`, `claude-3.5-sonnet`, `claude-3-haiku`...\n\nUsa el comando `@corrector /modelos` en el chat para ver todos los modelos disponibles en tu VS Code."
+        },
+        "corrector.corregirEnEditor": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "**Corrección en el editor:** Si activas esta opción, el Corrector subrayará errores ortográficos directamente en tus archivos (comentarios, strings y archivos de texto).\n\nFunciona 100% offline. Puedes activar/desactivar rápidamente con el comando `Corrector: Activar/Desactivar corrección en el editor` desde la paleta de comandos (`Cmd+Shift+P`)."
         }
       }
     }
@@ -124,7 +133,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "tsc -p tsconfig.test.json && node --test 'out-test/test/**/*.js'"
   },
   "devDependencies": {
     "@types/vscode": "^1.93.0",
