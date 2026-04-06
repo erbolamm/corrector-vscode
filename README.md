@@ -1,4 +1,33 @@
-# Corrector — Asistente de escritura para Copilot Chat
+<p align="center">
+  <img src="icon.png" alt="Corrector Español" width="128" />
+</p>
+
+<h1 align="center">Corrector — Asistente de escritura para Copilot Chat</h1>
+
+<p align="center">
+  <strong>Corrección ortográfica en español para VS Code.</strong><br>
+  100% offline, sin dependencias externas. Diseñado especialmente para personas con dislexia.
+</p>
+
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=apliarte.corrector-espanol">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/apliarte.corrector-espanol?label=Marketplace&color=blue" alt="VS Marketplace Version" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=apliarte.corrector-espanol">
+    <img src="https://img.shields.io/visual-studio-marketplace/i/apliarte.corrector-espanol?label=Installs&color=green" alt="VS Marketplace Installs" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/erbolamm/corrector-vscode" alt="License" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=apliarte.corrector-espanol">VS Marketplace</a> · 
+  <a href="https://open-vsx.org/extension/apliarte/corrector-espanol">Open VSX (Cursor/Windsurf/Antigravity)</a> · 
+  <a href="https://github.com/erbolamm/corrector-vscode">GitHub</a>
+</p>
+
+---
 
 > 🇪🇸 **Este corrector funciona SOLO en español.** Detecta y corrige errores ortográficos del idioma español. No corrige otros idiomas.
 
@@ -40,9 +69,15 @@ Con las correcciones detalladas:
 
 ## Comandos en la paleta
 
+- **Corrector: Abrir menú principal** — Abre un desplegable con todas las acciones rápidas (activar/desactivar, correcciones, diccionario, fuente, estadísticas, sugerencias)
+- **Corrector: Activar/Desactivar corrección en el editor** — Enciende o apaga el subrayado ortográfico en archivos
+- **Corrector: Ver correcciones del documento** — Abre el diálogo interactivo de correcciones del archivo activo
+- **Corrector: Corregir todo el documento** — Aplica todas las correcciones detectadas de una vez
+- **Corrector: Activar/Desactivar fuente OpenDyslexic** — Cambia la fuente del editor/terminal
 - **Corrector: Agregar palabra al diccionario personal** — Añade pares error→correcto
 - **Corrector: Ver diccionario personal** — Lista y elimina entradas
 - **Corrector: Ver estadísticas de correcciones** — Estadísticas de uso
+- **Corrector: Enviar sugerencias por email** — Envía `.corrector-sugerencias.md` al desarrollador
 
 ## Configuración
 
@@ -93,6 +128,26 @@ npm run watch
 # Empaquetar
 npm run package
 ```
+
+## Instalación en Windsurf / Antigravity / Open VSX
+
+Estas IDEs usan Open VSX en lugar del Marketplace de Microsoft. Como el proceso de publicación en Open VSX requiere cuenta Eclipse + acuerdo legal, la forma más rápida de instalar es:
+
+### Opción 1: Instalación manual (recomendada)
+
+1. Descarga el archivo `.vsix` desde [GitHub Releases](https://github.com/erbolamm/corrector-vscode/releases)
+2. En Windsurf/Antigravity: abre la paleta de comandos (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+3. Ejecuta: `Extensions: Install from VSIX...`
+4. Selecciona el archivo descargado
+5. ¡Listo! La extensión se instala y se activa automáticamente
+
+### Opción 2: Desde el Marketplace de Microsoft
+
+Si tu IDE lo permite, cambia el origen de extensiones:
+1. Settings (`Ctrl+,`) → busca `extensions gallery`
+2. Cambia las URLs al Marketplace de Microsoft:
+   - Service URL: `https://marketplace.visualstudio.com/_apis/public/gallery`
+   - Item URL: `https://marketplace.visualstudio.com/items`
 
 ## Autor
 
