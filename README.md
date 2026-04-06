@@ -241,7 +241,16 @@ Grazie di cuore per usare Corrector.
 
 ---
 
-## 💖 Apoya el proyecto
+## � Comparte
+
+Si te gusta Corrector Español, ayuda a que más gente lo conozca:
+
+[![Compartir en Twitter](https://img.shields.io/badge/Twitter-Compartir-1DA1F2?logo=twitter&logoColor=white)](https://twitter.com/intent/tweet?text=Corrector%20ortogr%C3%A1fico%20en%20espa%C3%B1ol%20para%20VS%20Code.%20100%25%20offline%2C%20dise%C3%B1ado%20para%20dislexia.&url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode&via=erbolamm)
+[![Compartir en LinkedIn](https://img.shields.io/badge/LinkedIn-Compartir-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode)
+[![Compartir en Reddit](https://img.shields.io/badge/Reddit-Compartir-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/submit?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode&title=Corrector%20Espa%C3%B1ol%20%E2%80%94%20Ortograf%C3%ADa%20para%20Copilot%20Chat)
+[![Compartir en WhatsApp](https://img.shields.io/badge/WhatsApp-Compartir-25D366?logo=whatsapp&logoColor=white)](https://api.whatsapp.com/send?text=Corrector%20ortogr%C3%A1fico%20para%20VS%20Code%20%E2%80%94%20100%25%20offline%2C%20dise%C3%B1ado%20para%20dislexia.%20https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode)
+
+## �💖 Apoya el proyecto
 
 Herramienta gratuita y open source. Si te ahorra tiempo, un café ayuda a mantener el desarrollo.
 
