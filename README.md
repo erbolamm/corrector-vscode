@@ -25,6 +25,7 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=apliarte.corrector-espanol">VS Marketplace</a> · 
   <a href="https://open-vsx.org/extension/apliarte/corrector-espanol">Open VSX (Cursor/Windsurf/Antigravity)</a> · 
   <a href="https://github.com/erbolamm/corrector-vscode">GitHub</a>
+  <a href="https://discord.gg/SRwuZXpsZw">Discord</a>
 </p>
 
 ---
