@@ -102,6 +102,19 @@ src/
 
 ## REGLAS PARA AGENTES
 
+0. **⚠️ PROTECCIÓN DEL SETTINGS.JSON GLOBAL — OBLIGATORIO ⚠️**
+   Esta extensión registra settings que modifican la config global de VS Code del usuario:
+   - `corrector.fuenteDislexia` → cambia `editor.fontFamily` y/o `terminal.integrated.fontFamily`
+   - `corrector.mostrarOriginal`, `corrector.mostrarExplicaciones`, `corrector.reenviarACopilot`, `corrector.modeloPreferido`
+
+   **NUNCA** hagas estos cambios sin que Javier lo confirme explícitamente:
+   - Modificar `package.json > contributes > configuration` añadiendo settings que toquen fuentes, tamaños, temas o colores del editor
+   - Añadir código en `extension.ts` que escriba en `vscode.workspace.getConfiguration()` claves nativas como `editor.*`, `terminal.*`, `workbench.*`
+   - Si necesitas usar `update()` sobre configuración global (ConfigurationTarget.Global), **pregunta primero** y explica exactamente qué va a cambiar
+   - Nunca instalar/cambiar fuentes del sistema operativo
+
+   **Contexto:** Hubo un incidente donde la extensión en desarrollo dejó residuos en el settings.json global del usuario (espacio en fontFamily, OpenDyslexic en terminal, corrector.fuenteDislexia). Se limpió el 8-marzo-2026. No repetir.
+
 1. **Idioma:** Todo el código, comentarios y UI están en español
 2. **Sin dependencias externas:** La corrección SIEMPRE debe funcionar offline. Nunca añadir APIs externas al motor corrector
 3. **La IA es OPCIONAL:** El modo IA (`reenviarACopilot`) está desactivado por defecto. Nunca cambiar ese default

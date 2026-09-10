@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0] — 2026-04-07
+
+### Añadido
+- **IA local offline**: refinamiento de texto con IA después de la corrección por reglas
+- Soporte para **Ollama**, **LM Studio** y **transformers.js** como backends de IA local
+- Auto-detección de backends disponibles (Ollama → LM Studio → transformers.js)
+- Nuevos ajustes: `corrector.iaLocal`, `corrector.iaLocalBackend`, `corrector.ollamaEndpoint`, `corrector.lmstudioEndpoint`, `corrector.ollamaModel`
+- Comandos: "Instalar IA local (transformers.js)" y "Cargar modelo de IA local"
+- Comando `/modelos` ahora muestra también backends de IA local detectados
+- Ayuda actualizada con sección de IA local
+
+### Notas
+- La IA local es **opcional** y está desactivada por defecto
+- Todo corre offline — no consume tokens ni requiere internet
+- El motor de reglas (250+) sigue siendo el pilar de la corrección
+
 ## [1.0.1] — 2026-03-08
 
 ### Cambiado

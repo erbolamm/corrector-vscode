@@ -12,6 +12,16 @@
 
 import * as vscode from 'vscode';
 import { MotorCorrector, ResultadoCorreccion } from './corrector';
+import {
+    setDepsDirectory,
+    detectarBackends,
+    refinarConIA,
+    instalarDepsTransformers,
+    cargarModeloLocal,
+    isModelLoaded,
+    IAConfig,
+    IABackend,
+} from './iaLocal';
 
 let motor: MotorCorrector;
 let contextoGlobal: vscode.ExtensionContext;
@@ -119,6 +129,8 @@ export function activate(context: vscode.ExtensionContext) {
     contextoGlobal = context;
     motor = new MotorCorrector();
 
+    // Configurar directorio de dependencias para IA local
+    setDepsDirectory(context.globalStorageUri.fsPath);
     // Cargar diccionario personal persistido
     cargarDatosGuardados();
 
@@ -279,84 +291,19 @@ export function activate(context: vscode.ExtensionContext) {
     const cmdToggleFuente = vscode.commands.registerCommand(
         'corrector.toggleFuente',
         async () => {
-            const config = vscode.workspace.getConfiguration('corrector');
-            let opcion = config.get<string>('fuenteDislexia', 'desactivada');
-            // Fallback: leer de globalState si el setting no funciona
-            if (opcion === 'desactivada') {
-                const fallback = contextoGlobal.globalState.get<string>('fuenteDislexiaActiva', '');
-                if (fallback && fallback !== 'desactivada') { opcion = fallback; }
-            }
-            const estaActiva = opcion !== 'desactivada';
+            // Ya no cambiamos la fuente directamente por seguridad y diseño.
+            // Simplemente llevamos al usuario a la configuración para que elija.
+            await vscode.commands.executeCommand('workbench.action.openSettings', 'corrector.fuenteDislexia');
 
-            if (estaActiva) {
-                // Desactivar: restaurar fuentes originales
-                const fuenteOriginalEditor = contextoGlobal.globalState.get<string>('fuenteOriginalEditor', '');
-                const fuenteOriginalTerminal = contextoGlobal.globalState.get<string>('fuenteOriginalTerminal', '');
-                const editorConfig = vscode.workspace.getConfiguration('editor');
-                const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
-
-                if (fuenteOriginalEditor) {
-                    await editorConfig.update('fontFamily', fuenteOriginalEditor, vscode.ConfigurationTarget.Global);
-                } else {
-                    await editorConfig.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
-                }
-                if (fuenteOriginalTerminal) {
-                    await terminalConfig.update('fontFamily', fuenteOriginalTerminal, vscode.ConfigurationTarget.Global);
-                } else {
-                    await terminalConfig.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
-                }
-
-                await config.update('fuenteDislexia', 'desactivada', vscode.ConfigurationTarget.Global).then(
-                    () => { },
-                    () => { /* Setting no registrado en esta versión, ignorar */ }
-                );
-                await contextoGlobal.globalState.update('fuenteDislexiaActiva', 'desactivada');
-                vscode.window.showInformationMessage('Corrector: Fuente OpenDyslexic DESACTIVADA — fuente original restaurada');
-            } else {
-                // Activar: preguntar dónde
-                const donde = await vscode.window.showQuickPick(
-                    [
-                        { label: 'Solo editor', description: 'Cambia la fuente del editor de código', value: 'editor' },
-                        { label: 'Solo terminal', description: 'Cambia la fuente del terminal', value: 'terminal' },
-                        { label: 'Editor + Terminal', description: 'Cambia ambas fuentes', value: 'ambos' },
-                    ],
-                    { placeHolder: '¿Dónde quieres usar OpenDyslexic?' }
-                );
-                if (!donde) { return; }
-
-                const editorConfig = vscode.workspace.getConfiguration('editor');
-                const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
-                const FUENTE = '"OpenDyslexic", monospace';
-
-                // Guardar fuentes actuales
-                const fuenteActualEditor = editorConfig.get<string>('fontFamily', '');
-                const fuenteActualTerminal = terminalConfig.get<string>('fontFamily', '');
-                await contextoGlobal.globalState.update('fuenteOriginalEditor', fuenteActualEditor);
-                await contextoGlobal.globalState.update('fuenteOriginalTerminal', fuenteActualTerminal);
-
-                if (donde.value === 'editor' || donde.value === 'ambos') {
-                    await editorConfig.update('fontFamily', FUENTE, vscode.ConfigurationTarget.Global);
-                }
-                if (donde.value === 'terminal' || donde.value === 'ambos') {
-                    await terminalConfig.update('fontFamily', FUENTE, vscode.ConfigurationTarget.Global);
-                }
-
-                await config.update('fuenteDislexia', donde.value, vscode.ConfigurationTarget.Global).then(
-                    () => { },
-                    () => { /* Setting no registrado, usar globalState como fallback */ }
-                );
-                // Guardar también en globalState como fallback
-                await contextoGlobal.globalState.update('fuenteDislexiaActiva', donde.value);
-
-                const msg = await vscode.window.showInformationMessage(
-                    'Corrector: Fuente OpenDyslexic ACTIVADA 🟢 — ' +
-                    'Si no la ves, asegúrate de tenerla instalada en tu sistema.',
-                    'Descargar OpenDyslexic'
-                );
-                if (msg === 'Descargar OpenDyslexic') {
+            vscode.window.showInformationMessage(
+                'Corrector: Configura el uso de OpenDyslexic aquí. ' +
+                'Recuerda que debes tener la fuente instalada en tu sistema.',
+                'Descargar OpenDyslexic'
+            ).then(seleccion => {
+                if (seleccion === 'Descargar OpenDyslexic') {
                     vscode.env.openExternal(vscode.Uri.parse('https://opendyslexic.org/'));
                 }
-            }
+            });
         }
     );
 
@@ -512,6 +459,66 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // ─── COMANDOS DE IA LOCAL ────────────────────────────────────────────
+    const cmdInstalarIALocal = vscode.commands.registerCommand(
+        'corrector.instalarIALocal',
+        async () => {
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Corrector: Instalando IA local',
+                    cancellable: false,
+                },
+                async (progress) => {
+                    try {
+                        await instalarDepsTransformers((msg) => {
+                            progress.report({ message: msg });
+                        });
+                        vscode.window.showInformationMessage(
+                            'Corrector: transformers.js instalado. Usa "Corrector: Cargar modelo de IA local" para descargar el modelo.'
+                        );
+                    } catch (err) {
+                        vscode.window.showErrorMessage(
+                            'Corrector: Error instalando transformers.js — ' + String(err)
+                        );
+                    }
+                }
+            );
+        }
+    );
+
+    const cmdCargarModeloLocal = vscode.commands.registerCommand(
+        'corrector.cargarModeloLocal',
+        async () => {
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Corrector: Descargando modelo de IA',
+                    cancellable: false,
+                },
+                async (progress) => {
+                    try {
+                        await cargarModeloLocal((info) => {
+                            const pct = info.progress != null
+                                ? ` (${Math.round(info.progress)}%)`
+                                : '';
+                            progress.report({
+                                message: `${info.status}${pct}${info.file ? ' — ' + info.file : ''}`,
+                            });
+                        });
+                        vscode.window.showInformationMessage(
+                            'Corrector: Modelo de IA local cargado y listo.'
+                        );
+                    } catch (err) {
+                        vscode.window.showErrorMessage(
+                            'Corrector: Error cargando modelo — ' + String(err)
+                        );
+                    }
+                }
+            );
+        }
+    );
+
     // ─── REGISTRAR CODE ACTION PROVIDER ──────────────────────────────────
     const codeActionProvider = vscode.languages.registerCodeActionsProvider(
         { scheme: 'file' },
@@ -537,6 +544,8 @@ export function activate(context: vscode.ExtensionContext) {
         cmdSugerirPalabra,
         cmdCorregirTodo,
         cmdEnviarSugerencias,
+        cmdInstalarIALocal,
+        cmdCargarModeloLocal,
         codeActionProvider,
         barraEstado,
         diagnosticos,
@@ -612,10 +621,14 @@ async function manejarMensajeChat(
     const mostrarExplicaciones = config.get<boolean>('mostrarExplicaciones', true);
 
     const reenviarIA = config.get<boolean>('reenviarACopilot', false);
+    const iaLocalActiva = config.get<boolean>('iaLocal', false);
+    const backendPreferido = config.get<string>('iaLocalBackend', 'auto') as IABackend | 'auto';
 
     // ── CABECERA DE MODO (siempre visible, primera línea) ──
     const idiomaLabel = resultado.idioma === 'en' ? '🇬🇧 English' : '🇪🇸 Español';
-    if (reenviarIA) {
+    if (iaLocalActiva) {
+        stream.markdown('> 🧠 **Modo IA local** · ' + idiomaLabel + ' · offline · reglas + IA\n\n');
+    } else if (reenviarIA) {
         stream.markdown('> 🤖 **Modo IA** · ' + idiomaLabel + ' · ⚠️ _consume tokens_\n\n');
     } else {
         stream.markdown('> 🔌 **Modo offline** · ' + idiomaLabel + ' · sin IA · sin internet · 250+ reglas\n\n');
@@ -740,6 +753,50 @@ async function manejarMensajeChat(
         }
     }
 
+    // ── REFINAMIENTO CON IA LOCAL (después de corrección por reglas) ──
+    if (iaLocalActiva && !reenviarIA) {
+        const textoBase = resultado.totalCorrecciones > 0
+            ? resultado.textoCorregido
+            : texto;
+
+        stream.markdown('\n---\n\n');
+        stream.markdown('🧠 **Refinando con IA local…**\n\n');
+
+        const iaConfig: IAConfig = {
+            backend: backendPreferido === 'auto' ? 'none' : backendPreferido,
+            ollamaEndpoint: config.get<string>('ollamaEndpoint', 'http://localhost:11434'),
+            lmstudioEndpoint: config.get<string>('lmstudioEndpoint', 'http://localhost:1234/v1'),
+            ollamaModel: config.get<string>('ollamaModel', ''),
+        };
+
+        try {
+            const refinamiento = await refinarConIA(textoBase, iaConfig);
+            if (refinamiento) {
+                // Only show if the IA actually changed something
+                if (refinamiento.textoRefinado !== textoBase) {
+                    stream.markdown('### ✨ Texto refinado por IA\n\n');
+                    stream.markdown('> ' + refinamiento.textoRefinado + '\n\n');
+                    stream.markdown('_Backend: **' + refinamiento.backend + '** · Modelo: **' + refinamiento.modelo + '**_\n\n');
+
+                    stream.button({
+                        command: 'corrector.copiarTexto',
+                        title: '📋 Copiar texto refinado',
+                        arguments: [refinamiento.textoRefinado],
+                    });
+                } else {
+                    stream.markdown('✅ La IA confirma que el texto está bien.\n\n');
+                    stream.markdown('_Backend: **' + refinamiento.backend + '** · Modelo: **' + refinamiento.modelo + '**_\n\n');
+                }
+            } else {
+                stream.markdown('⚠️ **No se encontró backend de IA local.** ');
+                stream.markdown('Instala [Ollama](https://ollama.com) o [LM Studio](https://lmstudio.ai), ');
+                stream.markdown('o usa el comando "Corrector: Instalar IA local" para transformers.js.\n\n');
+            }
+        } catch (err) {
+            stream.markdown('⚠️ _Error al refinar con IA local: ' + String(err) + '_\n\n');
+        }
+    }
+
     // Guardar datos actualizados
     guardarDatos();
 }
@@ -771,7 +828,11 @@ function mostrarAyuda(stream: vscode.ChatResponseStream): void {
     stream.markdown('- Activa `corrector.reenviarACopilot` en Ajustes para reenviar automáticamente a una IA\n');
     stream.markdown('- Configura `corrector.modeloPreferido` para elegir el modelo (ej: `gpt-4o-mini`, `claude-3-haiku`)\n');
     stream.markdown('- Usa `/modelos` para ver todos los modelos disponibles\n');
-    stream.markdown('- ⚠️ El modo IA consume tokens de tu plan\n');
+    stream.markdown('- ⚠️ El modo IA consume tokens de tu plan\n\n');
+    stream.markdown('### 🧠 IA Local (opcional, sin tokens)\n');
+    stream.markdown('- Activa `corrector.iaLocal` en Ajustes para refinar con IA local después de las reglas\n');
+    stream.markdown('- Compatible con **Ollama**, **LM Studio** o **transformers.js**\n');
+    stream.markdown('- Todo corre offline, no consume tokens\n');
 }
 
 // ─── SELECTOR DINÁMICO DE MODELOS IA ────────────────────────────────────────
@@ -864,7 +925,31 @@ async function mostrarModelosDisponibles(stream: vscode.ChatResponseStream): Pro
     stream.markdown('2. Busca `corrector.modeloPreferido`\n');
     stream.markdown('3. Escribe la **familia** del modelo que prefieras (ej: `gpt-4o-mini`)\n');
     stream.markdown('4. Activa `corrector.reenviarACopilot` para usar el modo IA\n\n');
-    stream.markdown('💡 _Consejo: los modelos "mini" o "haiku" son más rápidos y consumen menos tokens._\n');
+    stream.markdown('💡 _Consejo: los modelos "mini" o "haiku" son más rápidos y consumen menos tokens._\n\n');
+
+    // IA Local info
+    stream.markdown('---\n\n');
+    stream.markdown('## 🧠 IA Local (offline, sin tokens)\n\n');
+
+    const iaConfig: IAConfig = {
+        backend: 'none',
+        ollamaEndpoint: vscode.workspace.getConfiguration('corrector').get<string>('ollamaEndpoint', 'http://localhost:11434'),
+        lmstudioEndpoint: vscode.workspace.getConfiguration('corrector').get<string>('lmstudioEndpoint', 'http://localhost:1234/v1'),
+        ollamaModel: '',
+    };
+    const backends = await detectarBackends(iaConfig);
+
+    if (backends.length > 0) {
+        stream.markdown('Backends detectados: **' + backends.join(', ') + '**\n\n');
+    } else {
+        stream.markdown('No se detectaron backends de IA local.\n\n');
+    }
+
+    stream.markdown('Opciones disponibles:\n');
+    stream.markdown('- **Ollama** — `ollama serve` + modelo (`ollama pull llama3.2`)\n');
+    stream.markdown('- **LM Studio** — servidor local con modelos GGUF\n');
+    stream.markdown('- **transformers.js** — modelo ONNX integrado (usa "Corrector: Instalar IA local")\n\n');
+    stream.markdown('Activa con: `corrector.iaLocal: true` en Ajustes\n');
 }
 
 async function manejarComandoAgregar(texto: string, stream: vscode.ChatResponseStream): Promise<void> {
@@ -1176,32 +1261,10 @@ function extraerFragmentosCorregibles(
 
 // ─── DIÁLOGO INTERACTIVO DE CORRECCIONES ────────────────────────────────────
 
-function obtenerEstadoFuenteDislexia(): string {
-    const config = vscode.workspace.getConfiguration('corrector');
-    let opcion = config.get<string>('fuenteDislexia', 'desactivada');
-
-    if (opcion === 'desactivada') {
-        const fallback = contextoGlobal.globalState.get<string>('fuenteDislexiaActiva', '');
-        if (fallback && fallback !== 'desactivada') {
-            opcion = fallback;
-        }
-    }
-
-    return opcion;
-}
-
-function etiquetaEstadoFuenteDislexia(opcion: string): string {
-    if (opcion === 'editor') { return 'Solo editor'; }
-    if (opcion === 'terminal') { return 'Solo terminal'; }
-    if (opcion === 'ambos') { return 'Editor + Terminal'; }
-    return 'Desactivada';
-}
 
 async function mostrarMenuPrincipal(): Promise<void> {
     const config = vscode.workspace.getConfiguration('corrector');
     const estadoEditor = diagnosticosActivos ? 'Activada' : 'Desactivada';
-    const opcionFuente = obtenerEstadoFuenteDislexia();
-    const estadoFuente = etiquetaEstadoFuenteDislexia(opcionFuente);
     const estadoIa = config.get<boolean>('reenviarACopilot', false) ? 'Activado' : 'Desactivado';
     const hayEditorActivo = Boolean(vscode.window.activeTextEditor);
 
@@ -1225,8 +1288,8 @@ async function mostrarMenuPrincipal(): Promise<void> {
         },
         { label: '', kind: vscode.QuickPickItemKind.Separator },
         {
-            label: '$(typography) Activar/Desactivar OpenDyslexic',
-            description: estadoFuente,
+            label: '$(typography) Configurar fuente OpenDyslexic',
+            description: 'Abrir ajustes de fuente para dislexia',
             accion: 'toggle-fuente',
         },
         {
@@ -1256,7 +1319,7 @@ async function mostrarMenuPrincipal(): Promise<void> {
 
     const seleccion = await vscode.window.showQuickPick(items, {
         title: 'Corrector — Menú principal',
-        placeHolder: `Corrección en editor: ${estadoEditor} · OpenDyslexic: ${estadoFuente}`,
+        placeHolder: `Corrección en editor: ${estadoEditor} · Modo IA: ${estadoIa}`,
     });
 
     if (!seleccion?.accion) {
