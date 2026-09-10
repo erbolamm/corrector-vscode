@@ -1,9 +1,9 @@
 {
-  "name": "corrector-copilot",
-  "displayName": "Corrector — Asistente de escritura para Copilot Chat",
+  "name": "corrector-espanol",
+  "displayName": "Corrector Español — Ortografía para Copilot Chat",
   "description": "Corrige la ortografía en español dentro del chat de Copilot. 100% offline por defecto (sin IA). Modo IA opcional. 150+ reglas. Diseñado para dislexia.",
-  "version": "0.2.3",
-  "publisher": "Corrector",
+  "version": "1.0.1",
+  "publisher": "apliarte",
   "author": {
     "name": "Javier Mateo (ApliArte)",
     "url": "https://github.com/erbolamm"
@@ -34,7 +34,7 @@
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
-  "icon": "icon.png",
+  "icon": "icon-new.png",
   "contributes": {
     "chatParticipants": [
       {
@@ -97,8 +97,24 @@
         "title": "Corrector: Activar/Desactivar corrección en el editor"
       },
       {
+        "command": "corrector.menuPrincipal",
+        "title": "Corrector: Abrir menú principal"
+      },
+      {
+        "command": "corrector.verCorrecciones",
+        "title": "Corrector: Ver correcciones del documento"
+      },
+      {
         "command": "corrector.toggleFuente",
         "title": "Corrector: Activar/Desactivar fuente OpenDyslexic"
+      },
+      {
+        "command": "corrector.corregirTodo",
+        "title": "Corrector: Corregir todo el documento"
+      },
+      {
+        "command": "corrector.enviarSugerencias",
+        "title": "Corrector: Enviar sugerencias por email"
       }
     ],
     "configuration": {
@@ -127,8 +143,13 @@
         "corrector.fuenteDislexia": {
           "type": "string",
           "default": "desactivada",
-          "enum": ["desactivada", "editor", "terminal", "ambos"],
-          "markdownDescription": "**Fuente OpenDyslexic:** Activa la fuente OpenDyslexic diseñada para facilitar la lectura a personas con dislexia.\n\n- `desactivada` — Fuente por defecto\n- `editor` — Solo en el editor de código\n- `terminal` — Solo en el terminal\n- `ambos` — Editor + Terminal\n\n[Descargar OpenDyslexic](https://opendyslexic.org/) (debe estar instalada en tu sistema)."
+          "enum": [
+            "desactivada",
+            "editor",
+            "terminal",
+            "ambos"
+          ],
+          "markdownDescription": "**Fuente OpenDyslexic:** Selecciona dónde quieres visualizar la fuente OpenDyslexic.\n\n⚠️ **Importante:** Esta opción **no instala** la fuente. Debes descargarla e instalarla en tu sistema operativo primero para que VS Code pueda mostrarla correctamente.\n\n[Descargar OpenDyslexic](https://opendyslexic.org/)"
         },
         "corrector.corregirEnEditor": {
           "type": "boolean",

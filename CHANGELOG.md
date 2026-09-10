@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.0.1] — 2026-03-08
+
+### Cambiado
+- Bump de versión para publicación en Marketplace bajo publisher `apliarte`
+
+## [1.0.0] — 2026-03-08
+
+### Cambiado
+- **Nuevo nombre del paquete:** `corrector-espanol` (antes: `corrector-copilot`)
+- **Nuevo publisher:** `apliarte` (antes: `Corrector`)
+- Eliminados todos los `.vsix` generados bajo el publisher antiguo
+- Corrección en el editor activada desde barra de estado con menú principal
+- Motor bilingüe completo (ES/EN) probado con 83 tests automatizados
+
+### Añadido
+- Proveedor de Quick Fixes (Code Actions): botones ✏️ Cambiar, 📖 Diccionario, 💡 Sugerir
+- Comando "Corregir todo el documento" con confirmación previa
+- Archivo `.corrector-sugerencias.md` — log de sugerencias de usuarios
+- Comando "Enviar sugerencias por email" con las sugerencias agrupadas
+- Menú principal desde barra de estado (QuickPick con todas las acciones)
+- Detección automática de idioma (español / inglés) con indicador 🇪🇸/🇬🇧
+
+### Arreglado (consolidado desde v0.2.1)
+- BUG-1: Estadísticas persisten correctamente al reiniciar VS Code
+- BUG-2: Lógica anti-doble-corrección corregida (`c.original === match`)
+- BUG-3: Entrada duplicada de `yegar` eliminada del diccionario
+- BUG-4: Entradas inútiles (`abrir`, `llegar`, `consejo`) eliminadas
+- Palabras añadidas al diccionario: `gue→que`, `ertas→estas`, `biene→viene`, `bienen→vienen`, `abeces→a veces`, `hayga→haya`, `estava→estaba`, `estavamos→estábamos`
+
+## [0.2.4] — 2026-03-03
+
+### Añadido
+- **Correcciones interactivas (Quick Fixes):** Al hacer clic en la bombilla (💡) o `Cmd+.` sobre una palabra subrayada aparecen 3 opciones:
+  - ✏️ **Cambiar** — aplica la corrección directamente en el código
+  - 📖 **Añadir al diccionario personal** — la palabra deja de marcarse como error
+  - 💡 **Sugerir para el diccionario oficial** — guarda la sugerencia en `.corrector-sugerencias.md`
+- **Comando "Corregir todo el documento"** — aplica todas las correcciones de golpe con confirmación previa
+- **Archivo de sugerencias** (`.corrector-sugerencias.md`) — log de palabras sugeridas por los usuarios para mejorar el diccionario
+- **Comando "Enviar sugerencias por email"** — abre el cliente de email con las sugerencias para enviar al desarrollador
+
 ## [0.2.1] — 2026-03-03
 
 ### Añadido

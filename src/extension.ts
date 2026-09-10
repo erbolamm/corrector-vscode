@@ -18,6 +18,102 @@ let contextoGlobal: vscode.ExtensionContext;
 let diagnosticos: vscode.DiagnosticCollection;
 let diagnosticosActivos = false;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+let barraEstado: vscode.StatusBarItem;
+let ultimoNumErrores = 0;
+
+type AccionMenuPrincipal =
+    | 'toggle-editor'
+    | 'ver-correcciones'
+    | 'corregir-todo'
+    | 'toggle-fuente'
+    | 'agregar-palabra'
+    | 'ver-diccionario'
+    | 'estadisticas'
+    | 'enviar-sugerencias'
+    | 'abrir-ajustes';
+
+interface ItemMenuPrincipal extends vscode.QuickPickItem {
+    accion?: AccionMenuPrincipal;
+}
+
+/**
+ * Mapa que almacena los datos de corrección por cada diagnóstico.
+ * Clave: "uri:lineaInicio:colInicio:lineaFin:colFin"
+ */
+const correccionesDiagnostico = new Map<string, { original: string; corregido: string; regla: string }>();
+
+function generarIdDiagnostico(uri: string, range: vscode.Range): string {
+    return `${uri}:${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}`;
+}
+
+// ─── CODE ACTION PROVIDER (QUICK FIXES) ─────────────────────────────────────
+
+/**
+ * Proveedor de Quick Fixes para los diagnósticos del Corrector.
+ * Muestra acciones como "Cambiar", "Añadir al diccionario", "Sugerir palabra".
+ */
+class CorrectorCodeActionProvider implements vscode.CodeActionProvider {
+    public static readonly providedCodeActionKinds = [
+        vscode.CodeActionKind.QuickFix,
+    ];
+
+    provideCodeActions(
+        document: vscode.TextDocument,
+        _range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        _token: vscode.CancellationToken
+    ): vscode.CodeAction[] {
+        const acciones: vscode.CodeAction[] = [];
+
+        for (const diagnostic of context.diagnostics) {
+            if (diagnostic.source !== 'Corrector') { continue; }
+
+            const id = generarIdDiagnostico(document.uri.toString(), diagnostic.range);
+            const datos = correccionesDiagnostico.get(id);
+            if (!datos) { continue; }
+
+            // Acción 1: Cambiar la palabra (preferida — se aplica con Cmd+.)
+            const cambiar = new vscode.CodeAction(
+                `✏️ Cambiar "${datos.original}" → "${datos.corregido}"`,
+                vscode.CodeActionKind.QuickFix
+            );
+            cambiar.diagnostics = [diagnostic];
+            cambiar.isPreferred = true;
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(document.uri, diagnostic.range, datos.corregido);
+            cambiar.edit = edit;
+            acciones.push(cambiar);
+
+            // Acción 2: Añadir al diccionario personal (ignorar siempre)
+            const ignorar = new vscode.CodeAction(
+                `📖 Añadir "${datos.original}" al diccionario personal`,
+                vscode.CodeActionKind.QuickFix
+            );
+            ignorar.diagnostics = [diagnostic];
+            ignorar.command = {
+                command: 'corrector.ignorarDesdeEditor',
+                title: 'Ignorar palabra',
+                arguments: [datos.original, document.uri]
+            };
+            acciones.push(ignorar);
+
+            // Acción 3: Sugerir palabra al desarrollador
+            const sugerir = new vscode.CodeAction(
+                `💡 Sugerir "${datos.original}" para el diccionario oficial`,
+                vscode.CodeActionKind.QuickFix
+            );
+            sugerir.diagnostics = [diagnostic];
+            sugerir.command = {
+                command: 'corrector.sugerirPalabra',
+                title: 'Sugerir palabra',
+                arguments: [datos.original, datos.corregido, datos.regla]
+            };
+            acciones.push(sugerir);
+        }
+
+        return acciones;
+    }
+}
 
 export function activate(context: vscode.ExtensionContext) {
     contextoGlobal = context;
@@ -64,6 +160,42 @@ export function activate(context: vscode.ExtensionContext) {
     diagnosticos = vscode.languages.createDiagnosticCollection('corrector');
     diagnosticosActivos = vscode.workspace.getConfiguration('corrector').get<boolean>('corregirEnEditor', false);
 
+    // Barra de estado: muestra estado y abre el menú principal al hacer clic
+    barraEstado = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    barraEstado.command = 'corrector.menuPrincipal';
+    barraEstado.tooltip = 'Clic para abrir el menú principal del Corrector';
+    barraEstado.show();
+    actualizarBarraEstado(0);
+
+    // Comando: menú principal (QuickPick) con acciones del Corrector
+    const cmdMenuPrincipal = vscode.commands.registerCommand(
+        'corrector.menuPrincipal',
+        async () => {
+            await mostrarMenuPrincipal();
+        }
+    );
+
+    // Comando: mostrar diálogo interactivo de correcciones
+    const cmdVerCorrecciones = vscode.commands.registerCommand(
+        'corrector.verCorrecciones',
+        async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showInformationMessage('Corrector: No hay un editor activo');
+                return;
+            }
+            await mostrarDialogoCorrecciones(editor.document);
+        }
+    );
+
+    // Alias deprecado para compatibilidad con versiones anteriores.
+    const cmdMostrarDialogoDeprecated = vscode.commands.registerCommand(
+        'corrector.mostrarDialogo',
+        async () => {
+            await vscode.commands.executeCommand('corrector.verCorrecciones');
+        }
+    );
+
     // Comando: activar/desactivar corrección en editor
     const cmdToggleEditor = vscode.commands.registerCommand(
         'corrector.toggleEditor',
@@ -78,9 +210,14 @@ export function activate(context: vscode.ExtensionContext) {
                 // Analizar documento activo inmediatamente
                 if (vscode.window.activeTextEditor) {
                     analizarDocumento(vscode.window.activeTextEditor.document);
+                    const diagsDoc = diagnosticos.get(vscode.window.activeTextEditor.document.uri);
+                    actualizarBarraEstado(diagsDoc ? diagsDoc.length : 0);
+                } else {
+                    actualizarBarraEstado(0);
                 }
             } else {
                 diagnosticos.clear();
+                actualizarBarraEstado(0);
                 vscode.window.showInformationMessage('Corrector: Corrección en editor DESACTIVADA 🔴');
             }
         }
@@ -89,17 +226,29 @@ export function activate(context: vscode.ExtensionContext) {
     // Listener: analizar documento al cambiar
     const onDidChange = vscode.workspace.onDidChangeTextDocument(event => {
         if (!diagnosticosActivos) { return; }
-        // Debounce: esperar 500ms después del último cambio
+        // Debounce: esperar 1.5s después del último cambio para dar tiempo a escribir
         if (debounceTimer) { clearTimeout(debounceTimer); }
         debounceTimer = setTimeout(() => {
             analizarDocumento(event.document);
-        }, 500);
+            // Mostrar notificación automática si hay errores nuevos
+            const diagsDoc = diagnosticos.get(event.document.uri);
+            const numErrores = diagsDoc ? diagsDoc.length : 0;
+            actualizarBarraEstado(numErrores);
+            if (numErrores > 0 && numErrores !== ultimoNumErrores) {
+                mostrarNotificacionErrores(numErrores, event.document);
+            }
+            ultimoNumErrores = numErrores;
+        }, 1500);
     });
 
     // Listener: analizar al cambiar de pestaña
     const onDidChangeEditor = vscode.window.onDidChangeActiveTextEditor(editor => {
         if (!diagnosticosActivos || !editor) { return; }
         analizarDocumento(editor.document);
+        const diagsDoc = diagnosticos.get(editor.document.uri);
+        const numErrores = diagsDoc ? diagsDoc.length : 0;
+        actualizarBarraEstado(numErrores);
+        ultimoNumErrores = numErrores;
     });
 
     // Listener: reaccionar a cambios del setting
@@ -108,8 +257,13 @@ export function activate(context: vscode.ExtensionContext) {
             diagnosticosActivos = vscode.workspace.getConfiguration('corrector').get<boolean>('corregirEnEditor', false);
             if (!diagnosticosActivos) {
                 diagnosticos.clear();
+                actualizarBarraEstado(0);
             } else if (vscode.window.activeTextEditor) {
                 analizarDocumento(vscode.window.activeTextEditor.document);
+                const diagsDoc = diagnosticos.get(vscode.window.activeTextEditor.document.uri);
+                actualizarBarraEstado(diagsDoc ? diagsDoc.length : 0);
+            } else {
+                actualizarBarraEstado(0);
             }
         }
     });
@@ -117,6 +271,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Analizar el documento activo al arrancar (si está activo)
     if (diagnosticosActivos && vscode.window.activeTextEditor) {
         analizarDocumento(vscode.window.activeTextEditor.document);
+        const diagsDoc = diagnosticos.get(vscode.window.activeTextEditor.document.uri);
+        actualizarBarraEstado(diagsDoc ? diagsDoc.length : 0);
     }
 
     // ─── FUENTE OPENDYSLEXIC ────────────────────────────────────────────
@@ -124,7 +280,12 @@ export function activate(context: vscode.ExtensionContext) {
         'corrector.toggleFuente',
         async () => {
             const config = vscode.workspace.getConfiguration('corrector');
-            const opcion = config.get<string>('fuenteDislexia', 'desactivada');
+            let opcion = config.get<string>('fuenteDislexia', 'desactivada');
+            // Fallback: leer de globalState si el setting no funciona
+            if (opcion === 'desactivada') {
+                const fallback = contextoGlobal.globalState.get<string>('fuenteDislexiaActiva', '');
+                if (fallback && fallback !== 'desactivada') { opcion = fallback; }
+            }
             const estaActiva = opcion !== 'desactivada';
 
             if (estaActiva) {
@@ -145,7 +306,11 @@ export function activate(context: vscode.ExtensionContext) {
                     await terminalConfig.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
                 }
 
-                await config.update('fuenteDislexia', 'desactivada', vscode.ConfigurationTarget.Global);
+                await config.update('fuenteDislexia', 'desactivada', vscode.ConfigurationTarget.Global).then(
+                    () => { },
+                    () => { /* Setting no registrado en esta versión, ignorar */ }
+                );
+                await contextoGlobal.globalState.update('fuenteDislexiaActiva', 'desactivada');
                 vscode.window.showInformationMessage('Corrector: Fuente OpenDyslexic DESACTIVADA — fuente original restaurada');
             } else {
                 // Activar: preguntar dónde
@@ -176,7 +341,12 @@ export function activate(context: vscode.ExtensionContext) {
                     await terminalConfig.update('fontFamily', FUENTE, vscode.ConfigurationTarget.Global);
                 }
 
-                await config.update('fuenteDislexia', donde.value, vscode.ConfigurationTarget.Global);
+                await config.update('fuenteDislexia', donde.value, vscode.ConfigurationTarget.Global).then(
+                    () => { },
+                    () => { /* Setting no registrado, usar globalState como fallback */ }
+                );
+                // Guardar también en globalState como fallback
+                await contextoGlobal.globalState.update('fuenteDislexiaActiva', donde.value);
 
                 const msg = await vscode.window.showInformationMessage(
                     'Corrector: Fuente OpenDyslexic ACTIVADA 🟢 — ' +
@@ -215,6 +385,140 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // ─── COMANDOS INTERACTIVOS DE CORRECCIÓN ────────────────────────────
+
+    // Comando: ignorar palabra desde el editor (Code Action)
+    const cmdIgnorarDesdeEditor = vscode.commands.registerCommand(
+        'corrector.ignorarDesdeEditor',
+        async (palabra: string, uri: vscode.Uri) => {
+            motor.ignorarPalabra(palabra.toLowerCase());
+            guardarDatos();
+            vscode.window.showInformationMessage(
+                `Corrector: "${palabra}" añadida al diccionario personal — no se volverá a marcar`
+            );
+            // Re-analizar el documento para quitar los diagnósticos de esa palabra
+            const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
+            if (doc) { analizarDocumento(doc); }
+        }
+    );
+
+    // Comando: sugerir palabra para el diccionario oficial
+    const cmdSugerirPalabra = vscode.commands.registerCommand(
+        'corrector.sugerirPalabra',
+        async (original: string, corregido: string, regla: string) => {
+            await guardarSugerencia(original, corregido, regla);
+            vscode.window.showInformationMessage(
+                `Corrector: Sugerencia guardada en .corrector-sugerencias.md — ` +
+                `"${original}" → "${corregido}". ¡Gracias por ayudar a mejorar el diccionario!`
+            );
+        }
+    );
+
+    // Comando: corregir todo el documento de golpe
+    const cmdCorregirTodo = vscode.commands.registerCommand(
+        'corrector.corregirTodo',
+        async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showWarningMessage('Corrector: No hay un editor activo');
+                return;
+            }
+
+            const doc = editor.document;
+            const diagsDoc = diagnosticos.get(doc.uri);
+            if (!diagsDoc || diagsDoc.length === 0) {
+                vscode.window.showInformationMessage('Corrector: No hay errores que corregir en este documento');
+                return;
+            }
+
+            // Confirmar antes de aplicar todo
+            const confirmar = await vscode.window.showWarningMessage(
+                `Corrector: Se van a aplicar ${diagsDoc.length} correcciones. ¿Continuar?`,
+                'Sí, corregir todo',
+                'Cancelar'
+            );
+            if (confirmar !== 'Sí, corregir todo') { return; }
+
+            // Aplicar correcciones de abajo hacia arriba (para no desplazar posiciones)
+            const editWs = new vscode.WorkspaceEdit();
+            const diagsOrdenados = [...diagsDoc].sort((a, b) => {
+                if (a.range.start.line !== b.range.start.line) {
+                    return b.range.start.line - a.range.start.line;
+                }
+                return b.range.start.character - a.range.start.character;
+            });
+
+            let aplicadas = 0;
+            for (const diag of diagsOrdenados) {
+                const id = generarIdDiagnostico(doc.uri.toString(), diag.range);
+                const datos = correccionesDiagnostico.get(id);
+                if (datos) {
+                    editWs.replace(doc.uri, diag.range, datos.corregido);
+                    aplicadas++;
+                }
+            }
+
+            if (aplicadas > 0) {
+                await vscode.workspace.applyEdit(editWs);
+                vscode.window.showInformationMessage(
+                    `Corrector: ${aplicadas} correcciones aplicadas ✅`
+                );
+            }
+        }
+    );
+
+    // Comando: enviar archivo de sugerencias por email
+    const cmdEnviarSugerencias = vscode.commands.registerCommand(
+        'corrector.enviarSugerencias',
+        async () => {
+            const folder = vscode.workspace.workspaceFolders?.[0];
+            if (!folder) {
+                vscode.window.showWarningMessage('Corrector: Necesitas tener una carpeta abierta');
+                return;
+            }
+
+            const archivoUri = vscode.Uri.joinPath(folder.uri, '.corrector-sugerencias.md');
+            try {
+                const contenido = await vscode.workspace.fs.readFile(archivoUri);
+                const texto = Buffer.from(contenido).toString('utf-8');
+
+                if (texto.trim().length === 0) {
+                    vscode.window.showInformationMessage('Corrector: El archivo de sugerencias está vacío');
+                    return;
+                }
+
+                // Abrir mailto con el contenido
+                const asunto = encodeURIComponent('Sugerencias para Corrector - Diccionario');
+                const cuerpo = encodeURIComponent(
+                    'Hola Javier,\n\n' +
+                    'Estas son mis sugerencias para el diccionario del Corrector:\n\n' +
+                    texto + '\n\n' +
+                    'Enviado desde la extensión Corrector para VS Code'
+                );
+                const mailtoUri = vscode.Uri.parse(
+                    `mailto:erbolamm@gmail.com?subject=${asunto}&body=${cuerpo}`
+                );
+                await vscode.env.openExternal(mailtoUri);
+
+                vscode.window.showInformationMessage(
+                    'Corrector: Se ha abierto tu cliente de email con las sugerencias. ¡Gracias por la colaboración!'
+                );
+            } catch {
+                vscode.window.showWarningMessage(
+                    'Corrector: No se encontró el archivo .corrector-sugerencias.md — ' +
+                    'Usa las Quick Fixes (💡) para sugerir palabras primero'
+                );
+            }
+        }
+    );
+
+    // ─── REGISTRAR CODE ACTION PROVIDER ──────────────────────────────────
+    const codeActionProvider = vscode.languages.registerCodeActionsProvider(
+        { scheme: 'file' },
+        new CorrectorCodeActionProvider(),
+        { providedCodeActionKinds: CorrectorCodeActionProvider.providedCodeActionKinds }
+    );
+
     // Registrar todo en el contexto para limpieza
     context.subscriptions.push(
         participante,
@@ -226,6 +530,15 @@ export function activate(context: vscode.ExtensionContext) {
         cmdPermitirSiempre,
         cmdToggleEditor,
         cmdToggleFuente,
+        cmdMenuPrincipal,
+        cmdVerCorrecciones,
+        cmdMostrarDialogoDeprecated,
+        cmdIgnorarDesdeEditor,
+        cmdSugerirPalabra,
+        cmdCorregirTodo,
+        cmdEnviarSugerencias,
+        codeActionProvider,
+        barraEstado,
         diagnosticos,
         onDidChange,
         onDidChangeEditor,
@@ -724,6 +1037,49 @@ function cargarDatosGuardados(): void {
         (diccionario ? Object.keys(diccionario).length : 0) + ' entradas');
 }
 
+// ─── ARCHIVO DE SUGERENCIAS ────────────────────────────────────────────────
+
+/**
+ * Guarda una sugerencia de palabra en el archivo .corrector-sugerencias.md
+ * del workspace actual. Si no existe, lo crea con cabecera explicativa.
+ */
+async function guardarSugerencia(original: string, corregido: string, regla: string): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) { return; }
+
+    const archivoUri = vscode.Uri.joinPath(folder.uri, '.corrector-sugerencias.md');
+    const fecha = new Date().toLocaleString('es-ES', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    let contenidoExistente = '';
+    try {
+        const datos = await vscode.workspace.fs.readFile(archivoUri);
+        contenidoExistente = Buffer.from(datos).toString('utf-8');
+    } catch {
+        // No existe, crear con cabecera
+        contenidoExistente =
+            '# Sugerencias para el diccionario de Corrector\n\n' +
+            'Este archivo contiene palabras que podrían añadirse al diccionario\n' +
+            'del [Corrector Ortográfico](https://github.com/erbolamm/corrector-vscode).\n\n' +
+            'Puedes enviar este archivo al desarrollador para mejorar el diccionario\n' +
+            'usando el comando: **Corrector: Enviar sugerencias por email**\n' +
+            '(`Cmd+Shift+P` → `Corrector: Enviar sugerencias por email`)\n\n' +
+            '---\n\n';
+    }
+
+    const nuevaLinea = `- **${original}** → ${corregido} _(${regla})_ — ${fecha}\n`;
+
+    // Evitar duplicados
+    if (contenidoExistente.includes(`**${original}**`)) {
+        return; // Ya está sugerida
+    }
+
+    const contenidoFinal = contenidoExistente + nuevaLinea;
+    await vscode.workspace.fs.writeFile(archivoUri, Buffer.from(contenidoFinal, 'utf-8'));
+}
+
 export function deactivate() {
     // Guardar antes de desactivar
     if (motor && contextoGlobal) {
@@ -818,6 +1174,325 @@ function extraerFragmentosCorregibles(
     return fragmentos;
 }
 
+// ─── DIÁLOGO INTERACTIVO DE CORRECCIONES ────────────────────────────────────
+
+function obtenerEstadoFuenteDislexia(): string {
+    const config = vscode.workspace.getConfiguration('corrector');
+    let opcion = config.get<string>('fuenteDislexia', 'desactivada');
+
+    if (opcion === 'desactivada') {
+        const fallback = contextoGlobal.globalState.get<string>('fuenteDislexiaActiva', '');
+        if (fallback && fallback !== 'desactivada') {
+            opcion = fallback;
+        }
+    }
+
+    return opcion;
+}
+
+function etiquetaEstadoFuenteDislexia(opcion: string): string {
+    if (opcion === 'editor') { return 'Solo editor'; }
+    if (opcion === 'terminal') { return 'Solo terminal'; }
+    if (opcion === 'ambos') { return 'Editor + Terminal'; }
+    return 'Desactivada';
+}
+
+async function mostrarMenuPrincipal(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('corrector');
+    const estadoEditor = diagnosticosActivos ? 'Activada' : 'Desactivada';
+    const opcionFuente = obtenerEstadoFuenteDislexia();
+    const estadoFuente = etiquetaEstadoFuenteDislexia(opcionFuente);
+    const estadoIa = config.get<boolean>('reenviarACopilot', false) ? 'Activado' : 'Desactivado';
+    const hayEditorActivo = Boolean(vscode.window.activeTextEditor);
+
+    const items: ItemMenuPrincipal[] = [
+        {
+            label: `${diagnosticosActivos ? '$(check)' : '$(x)'} Activar/Desactivar corrección en editor`,
+            description: estadoEditor,
+            detail: 'Pulsa para cambiar el estado',
+            accion: 'toggle-editor',
+        },
+        { label: '', kind: vscode.QuickPickItemKind.Separator },
+        {
+            label: '$(pencil) Ver correcciones del documento',
+            description: hayEditorActivo ? '' : 'Requiere un editor activo',
+            accion: 'ver-correcciones',
+        },
+        {
+            label: '$(check-all) Corregir todo el documento',
+            description: hayEditorActivo ? '' : 'Requiere un editor activo',
+            accion: 'corregir-todo',
+        },
+        { label: '', kind: vscode.QuickPickItemKind.Separator },
+        {
+            label: '$(typography) Activar/Desactivar OpenDyslexic',
+            description: estadoFuente,
+            accion: 'toggle-fuente',
+        },
+        {
+            label: '$(hubot) Configuración de Modo IA',
+            description: estadoIa,
+            detail: 'Abrir ajustes de corrector.reenviarACopilot y corrector.modeloPreferido',
+            accion: 'abrir-ajustes',
+        },
+        { label: '', kind: vscode.QuickPickItemKind.Separator },
+        {
+            label: '$(add) Agregar palabra al diccionario personal',
+            accion: 'agregar-palabra',
+        },
+        {
+            label: '$(book) Ver diccionario personal',
+            accion: 'ver-diccionario',
+        },
+        {
+            label: '$(graph) Ver estadísticas de correcciones',
+            accion: 'estadisticas',
+        },
+        {
+            label: '$(mail) Enviar sugerencias por email',
+            accion: 'enviar-sugerencias',
+        },
+    ];
+
+    const seleccion = await vscode.window.showQuickPick(items, {
+        title: 'Corrector — Menú principal',
+        placeHolder: `Corrección en editor: ${estadoEditor} · OpenDyslexic: ${estadoFuente}`,
+    });
+
+    if (!seleccion?.accion) {
+        return;
+    }
+
+    switch (seleccion.accion) {
+        case 'toggle-editor':
+            await vscode.commands.executeCommand('corrector.toggleEditor');
+            break;
+        case 'ver-correcciones':
+            await vscode.commands.executeCommand('corrector.verCorrecciones');
+            break;
+        case 'corregir-todo':
+            await vscode.commands.executeCommand('corrector.corregirTodo');
+            break;
+        case 'toggle-fuente':
+            await vscode.commands.executeCommand('corrector.toggleFuente');
+            break;
+        case 'agregar-palabra':
+            await vscode.commands.executeCommand('corrector.agregarPalabra');
+            break;
+        case 'ver-diccionario':
+            await vscode.commands.executeCommand('corrector.verDiccionario');
+            break;
+        case 'estadisticas':
+            await vscode.commands.executeCommand('corrector.estadisticas');
+            break;
+        case 'enviar-sugerencias':
+            await vscode.commands.executeCommand('corrector.enviarSugerencias');
+            break;
+        case 'abrir-ajustes':
+            await vscode.commands.executeCommand('workbench.action.openSettings', 'corrector');
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * Actualiza el texto e icono de la barra de estado.
+ */
+function actualizarBarraEstado(numErrores: number): void {
+    if (!diagnosticosActivos) {
+        barraEstado.text = '$(circle-slash) Corrector: OFF';
+        barraEstado.backgroundColor = undefined;
+        barraEstado.tooltip = 'Corrector desactivado — clic para abrir el menú';
+        return;
+    }
+
+    if (numErrores > 0) {
+        barraEstado.text = `$(pencil) Corrector: ${numErrores} error${numErrores > 1 ? 'es' : ''}`;
+        barraEstado.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    } else {
+        barraEstado.text = '$(check) Corrector: Sin errores';
+        barraEstado.backgroundColor = undefined;
+    }
+    barraEstado.tooltip = 'Corrector activo — clic para abrir el menú';
+}
+
+/**
+ * Muestra una notificación automática cuando se detectan errores nuevos.
+ * El usuario puede abrir el diálogo de correcciones o ignorar.
+ */
+async function mostrarNotificacionErrores(
+    numErrores: number,
+    document: vscode.TextDocument
+): Promise<void> {
+    const accion = await vscode.window.showInformationMessage(
+        `🔤 Corrector: ${numErrores} error${numErrores > 1 ? 'es' : ''} encontrado${numErrores > 1 ? 's' : ''} en este archivo`,
+        'Ver correcciones',
+        'Corregir todo',
+        'Ignorar'
+    );
+
+    if (accion === 'Ver correcciones') {
+        await mostrarDialogoCorrecciones(document);
+    } else if (accion === 'Corregir todo') {
+        await vscode.commands.executeCommand('corrector.corregirTodo');
+    }
+}
+
+/**
+ * Diálogo interactivo (QuickPick) que muestra cada corrección
+ * y permite al usuario aceptar, rechazar o añadir al diccionario una por una.
+ */
+async function mostrarDialogoCorrecciones(document: vscode.TextDocument): Promise<void> {
+    const diagsDoc = diagnosticos.get(document.uri);
+    if (!diagsDoc || diagsDoc.length === 0) {
+        vscode.window.showInformationMessage('Corrector: No hay errores en este documento ✅');
+        return;
+    }
+
+    // Preparar items para el QuickPick
+    interface ItemCorreccion extends vscode.QuickPickItem {
+        tipo: 'correccion' | 'aplicar-todas' | 'diccionario-todas';
+        diagIndice?: number;
+    }
+
+    const items: ItemCorreccion[] = [];
+
+    // Opciones maestras al principio
+    items.push({
+        label: '$(check-all) Aplicar TODAS las correcciones',
+        description: `${diagsDoc.length} correcciones`,
+        tipo: 'aplicar-todas',
+        kind: vscode.QuickPickItemKind.Default,
+    });
+    items.push({
+        label: '',
+        kind: vscode.QuickPickItemKind.Separator,
+        tipo: 'correccion',
+    });
+
+    // Una entrada por cada corrección
+    for (let i = 0; i < diagsDoc.length; i++) {
+        const diag = diagsDoc[i];
+        const id = generarIdDiagnostico(document.uri.toString(), diag.range);
+        const datos = correccionesDiagnostico.get(id);
+        if (!datos) { continue; }
+
+        const linea = diag.range.start.line + 1;
+        items.push({
+            label: `$(pencil) "${datos.original}" → "${datos.corregido}"`,
+            description: `Línea ${linea} · ${datos.regla}`,
+            detail: `  Contexto: ...${document.getText(diag.range)}...`,
+            tipo: 'correccion',
+            diagIndice: i,
+        });
+    }
+
+    // Mostrar QuickPick (repetir hasta que el usuario cancele o no queden errores)
+    let seguir = true;
+    while (seguir) {
+        // Refrescar diagnósticos
+        const diagsActuales = diagnosticos.get(document.uri);
+        if (!diagsActuales || diagsActuales.length === 0) {
+            vscode.window.showInformationMessage('Corrector: ¡Todas las correcciones aplicadas! ✅');
+            break;
+        }
+
+        // Reconstruir items con diagnósticos actuales
+        const itemsActuales: ItemCorreccion[] = [];
+        itemsActuales.push({
+            label: `$(check-all) Aplicar TODAS (${diagsActuales.length} restantes)`,
+            description: '',
+            tipo: 'aplicar-todas',
+        });
+        itemsActuales.push({
+            label: '',
+            kind: vscode.QuickPickItemKind.Separator,
+            tipo: 'correccion',
+        });
+
+        for (let i = 0; i < diagsActuales.length; i++) {
+            const diag = diagsActuales[i];
+            const id = generarIdDiagnostico(document.uri.toString(), diag.range);
+            const datos = correccionesDiagnostico.get(id);
+            if (!datos) { continue; }
+
+            const linea = diag.range.start.line + 1;
+            itemsActuales.push({
+                label: `$(pencil) "${datos.original}" → "${datos.corregido}"`,
+                description: `Línea ${linea} · ${datos.regla}`,
+                tipo: 'correccion',
+                diagIndice: i,
+            });
+        }
+
+        const seleccion = await vscode.window.showQuickPick(itemsActuales, {
+            placeHolder: '¿Qué quieres hacer con cada corrección?',
+            title: `🔤 Corrector — ${diagsActuales.length} correcciones pendientes`,
+        }) as ItemCorreccion | undefined;
+
+        if (!seleccion) {
+            seguir = false;
+            break;
+        }
+
+        if (seleccion.tipo === 'aplicar-todas') {
+            await vscode.commands.executeCommand('corrector.corregirTodo');
+            seguir = false;
+            break;
+        }
+
+        if (seleccion.tipo === 'correccion' && seleccion.diagIndice !== undefined) {
+            const diag = diagsActuales[seleccion.diagIndice];
+            if (!diag) { continue; }
+            const id = generarIdDiagnostico(document.uri.toString(), diag.range);
+            const datos = correccionesDiagnostico.get(id);
+            if (!datos) { continue; }
+
+            // Sub-menú para esta corrección específica
+            const accion = await vscode.window.showQuickPick([
+                {
+                    label: `$(check) Aceptar: "${datos.original}" → "${datos.corregido}"`,
+                    value: 'aceptar'
+                },
+                {
+                    label: `$(book) Añadir "${datos.original}" al diccionario (no corregir nunca)`,
+                    value: 'diccionario'
+                },
+                {
+                    label: '$(lightbulb) Sugerir esta palabra al desarrollador',
+                    value: 'sugerir'
+                },
+                {
+                    label: '$(arrow-left) Volver a la lista',
+                    value: 'volver'
+                },
+            ], {
+                placeHolder: `¿Qué hacer con "${datos.original}"?`,
+                title: `✏️ "${datos.original}" → "${datos.corregido}" (${datos.regla})`,
+            });
+
+            if (!accion || accion.value === 'volver') {
+                continue; // Volver al bucle principal
+            }
+
+            if (accion.value === 'aceptar') {
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(document.uri, diag.range, datos.corregido);
+                await vscode.workspace.applyEdit(edit);
+                // Re-analizar
+                analizarDocumento(document);
+                const diagsNuevos = diagnosticos.get(document.uri);
+                actualizarBarraEstado(diagsNuevos ? diagsNuevos.length : 0);
+            } else if (accion.value === 'diccionario') {
+                await vscode.commands.executeCommand('corrector.ignorarDesdeEditor', datos.original, document.uri);
+            } else if (accion.value === 'sugerir') {
+                await vscode.commands.executeCommand('corrector.sugerirPalabra', datos.original, datos.corregido, datos.regla);
+            }
+        }
+    }
+}
+
 /**
  * Analiza un documento buscando errores ortográficos
  * y los muestra como diagnósticos (subrayados) en el editor.
@@ -830,6 +1505,14 @@ function analizarDocumento(document: vscode.TextDocument): void {
 
     const fragmentos = extraerFragmentosCorregibles(document);
     const nuevos: vscode.Diagnostic[] = [];
+
+    // Limpiar datos de corrección anteriores para este documento
+    const uriStr = document.uri.toString();
+    for (const key of correccionesDiagnostico.keys()) {
+        if (key.startsWith(uriStr)) {
+            correccionesDiagnostico.delete(key);
+        }
+    }
 
     for (const fragmento of fragmentos) {
         const resultado = motor.corregir(fragmento.texto);
@@ -860,6 +1543,14 @@ function analizarDocumento(document: vscode.TextDocument): void {
             diag.source = 'Corrector';
             diag.code = 'corrector-ortografia';
             nuevos.push(diag);
+
+            // Guardar datos de corrección para el CodeActionProvider
+            const id = generarIdDiagnostico(uriStr, range);
+            correccionesDiagnostico.set(id, {
+                original: correccion.original,
+                corregido: correccion.corregido,
+                regla: correccion.regla
+            });
         }
     }
 
