@@ -6,8 +6,9 @@
  */
 
 import { execFile } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -26,6 +27,11 @@ export interface RefinamientoIA {
     textoRefinado: string;
     backend: IABackend;
     modelo: string;
+}
+
+export interface InstalledModel {
+id: string;
+localPath: string;
 }
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
@@ -376,3 +382,93 @@ async function ensureImported(): Promise<void> {
     const mod = await import(transformersPath);
     _pipelineFn = mod.pipeline;
 }
+
+// ─── SCAN MODELS DIR ────────────────────────────────────────────────────────
+
+const _SKIP_DIRS = new Set([
+    'blobs', 'manifests', 'logs', 'extensions', 'backends',
+    'db', 'threads', 'node_modules', 'dist', '.git',
+]);
+
+function _scanModelsRecursive(
+    baseDir: string,
+    currentDir: string,
+    depth: number,
+    out: InstalledModel[],
+): void {
+    if (depth > 4) { return; }
+
+    let entries: string[];
+    try { entries = readdirSync(currentDir); } catch { return; }
+
+    const subdirs: string[] = [];
+    for (const e of entries) {
+        try {
+            if (statSync(join(currentDir, e)).isDirectory()) {
+                subdirs.push(e);
+            }
+        } catch { /* skip */ }
+    }
+
+    // Detect HF cache model directory by name: models--ORG--NAME
+    const dirName = currentDir === baseDir
+        ? ''
+        : currentDir.slice(baseDir.length + 1).split('/').pop() ?? '';
+    if (dirName.startsWith('models--')) {
+        const parts = dirName.slice('models--'.length).split('--');
+        if (parts.length >= 2 && subdirs.includes('snapshots')) {
+            try {
+                const snapDir = join(currentDir, 'snapshots');
+                const hashes = readdirSync(snapDir).filter((h) => {
+                    try { return statSync(join(snapDir, h)).isDirectory(); } catch { return false; }
+                });
+                for (const hash of hashes) {
+                    const snapFiles = readdirSync(join(snapDir, hash));
+                    if (snapFiles.some((f) => f.endsWith('.onnx') || f.endsWith('.safetensors'))) {
+                        out.push({ id: parts.join('/'), localPath: currentDir });
+                        return;
+                    }
+                }
+            } catch { /* skip corrupt cache entries */ }
+        }
+    }
+
+    for (const sub of subdirs) {
+        if (_SKIP_DIRS.has(sub)) { continue; }
+        _scanModelsRecursive(baseDir, join(currentDir, sub), depth + 1, out);
+    }
+}
+
+/**
+ * Returns all ONNX models found in `modelsDir` or the default HF cache.
+ */
+export function scanInstalledModels(modelsDir?: string): InstalledModel[] {
+    const searchDirs: string[] = [];
+
+    if (modelsDir && modelsDir.trim()) {
+        searchDirs.push(modelsDir.trim());
+    }
+
+    const defaultCache = join(homedir(), '.cache', 'huggingface', 'hub');
+    if (existsSync(defaultCache)) {
+        searchDirs.push(defaultCache);
+    }
+
+    const results: InstalledModel[] = [];
+    const seen = new Set<string>();
+
+    for (const dir of searchDirs) {
+        if (!existsSync(dir)) { continue; }
+        const models: InstalledModel[] = [];
+        _scanModelsRecursive(dir, dir, 0, models);
+        for (const m of models) {
+            if (!seen.has(m.id)) {
+                seen.add(m.id);
+                results.push(m);
+            }
+        }
+    }
+
+    return results;
+}
+

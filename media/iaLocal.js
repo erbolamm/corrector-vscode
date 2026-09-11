@@ -13,6 +13,7 @@
     modelsDir: '',
     currentModel: null,
     recommendedModels: [],
+    installedModels: [],
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -185,12 +186,92 @@
       top.appendChild(info);
       top.appendChild(actions);
 
-      card.appendChild(top);
-      container.appendChild(card);
-    });
-  }
+          card.appendChild(top);
+          container.appendChild(card);
+        });
+      }
 
-  function updateFolderSection() {
+      function renderInstalledModels() {
+        const container = $('installed-models');
+        const header = $('installed-section-header');
+        const description = $('installed-description');
+        container.innerHTML = '';
+
+        const models = state.installedModels;
+        if (!models || models.length === 0) {
+          hide(header);
+          hide(description);
+          return;
+        }
+
+        show(header);
+        show(description);
+
+        models.forEach(function (model) {
+          const isLoaded = state.isModelLoaded && state.currentModel === model.id;
+          const isRecommended = state.recommendedModels.some(function (r) { return r.id === model.id; });
+
+          var card = document.createElement('div');
+          card.className = 'model-card';
+
+          var top = document.createElement('div');
+          top.className = 'model-card-top';
+
+          var info = document.createElement('div');
+          info.className = 'model-info';
+
+          var name = document.createElement('div');
+          name.className = 'model-name';
+          name.textContent = model.id;
+
+          var meta = document.createElement('div');
+          meta.className = 'model-meta';
+
+          var badge = document.createElement('span');
+          badge.className = 'badge' + (isLoaded ? ' badge-loaded' : ' badge-not-installed');
+          badge.textContent = isLoaded ? 'En memoria' : 'En disco';
+          meta.appendChild(badge);
+
+          if (isRecommended) {
+            var recBadge = document.createElement('span');
+            recBadge.className = 'badge badge-recommended';
+            recBadge.textContent = 'Recomendado';
+            meta.appendChild(recBadge);
+          }
+
+          info.appendChild(name);
+          info.appendChild(meta);
+
+          var actions = document.createElement('div');
+          actions.className = 'model-card-actions';
+
+          if (isLoaded) {
+            var unloadBtn = document.createElement('button');
+            unloadBtn.className = 'btn btn-sm';
+            unloadBtn.textContent = 'Liberar';
+            unloadBtn.addEventListener('click', unloadModel);
+            actions.appendChild(unloadBtn);
+          } else {
+            var loadBtn = document.createElement('button');
+            loadBtn.className = 'btn btn-sm btn-primary';
+            loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar';
+            loadBtn.addEventListener('click', function () {
+              if (!state.isDepsInstalled) {
+                installDeps();
+              }
+              loadModel(model.id);
+            });
+            actions.appendChild(loadBtn);
+          }
+
+          top.appendChild(info);
+          top.appendChild(actions);
+          card.appendChild(top);
+          container.appendChild(card);
+        });
+      }
+
+      function updateFolderSection() {
     const pathEl = $('folder-path');
     const notice = $('shared-notice');
 
@@ -312,8 +393,10 @@
         state.isDepsInstalled = !!msg.isDepsInstalled;
         state.modelsDir = msg.modelsDir || '';
         state.currentModel = msg.currentModel || null;
+        state.installedModels = msg.installedModels || [];
         updateStatusBar();
         renderRecommendedModels();
+        renderInstalledModels();
         updateFolderSection();
         break;
 

@@ -12,7 +12,9 @@ import {
   cargarModeloLocal,
   isModelLoaded,
   descargarModelo,
+  scanInstalledModels,
   IAConfig,
+  InstalledModel,
 } from './iaLocal';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -108,6 +110,13 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             await this._searchHuggingFace(data.query as string);
             break;
 
+          case 'requestInstalledModels': {
+            const modelsDir = this._getModelsDir();
+            const installed: InstalledModel[] = scanInstalledModels(modelsDir);
+            this._post({ type: 'installedModels', models: installed });
+            break;
+          }
+
           default:
             break;
         }
@@ -128,6 +137,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
   private _sendStatus(): void {
     const modelsDir = this._getModelsDir();
+    const installed: InstalledModel[] = scanInstalledModels(modelsDir);
     this._post({
       type: 'statusUpdate',
       isModelLoaded: isModelLoaded(),
@@ -136,6 +146,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       currentModel: isModelLoaded()
         ? (this._globalState.get<string>('iaLocal_currentModel') ?? null)
         : null,
+      installedModels: installed,
     });
   }
 
@@ -361,6 +372,15 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         Qwen 2.5 0.5B es suficiente y usa poca memoria.
       </p>
       <div id="recommended-models"></div>
+    </section>
+
+    <!-- Installed models -->
+    <section>
+      <div class="section-header" id="installed-section-header" style="display:none;">Modelos en disco</div>
+      <p style="font-size:10px;color:var(--vscode-descriptionForeground);margin-bottom:6px;" id="installed-description" hidden>
+        Modelos ya descargados que puedes cargar directamente.
+      </p>
+      <div id="installed-models"></div>
     </section>
 
     <!-- Progress -->
