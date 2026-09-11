@@ -9,3 +9,11 @@ out-test/**
 out/**/*.map
 out/**/*.d.ts
 !icon.png
+.claude/**
+.kiro/**
+.agent/**
+.agents/**
+.pi/**
+skills/**
+**/skills/**
+.gemini/**

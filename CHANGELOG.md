@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.0] — 2026-09-11
+
+### Añadido
+- **Panel de IA local**: gestión visual de modelos transformers.js en la barra lateral
+(WebviewViewProvider) — buscar, descargar, cargar, liberar, elegir carpeta
+- **Búsqueda de modelos en HuggingFace**: filtra modelos ONNX compatibles con
+transformers.js y muestra nombre, repo, descargas y botón de carga
+- **Preflight de memoria RAM**: verificación antes de cargar modelo, aviso si no hay
+suficiente memoria
+- **Carpeta compartida con ApliArte AI**: detección automática y aviso cuando la carpeta
+de modelos coincide con la de ApliArte AI
+- **Modelos recomendados**: SmolLM2 360M y Qwen 2.5 0.5B preconfigurados con
+botón de cargar
+- Instalación desatendida de `@huggingface/transformers` con botón dedicado
+
+### Cambiado
+- El panel lateral se abre con el comando "Corrector: IA local"
+- Búsqueda de modelos instalados en disco (no solo en carpeta configurada)
+- Tema claro/oscuro automático y soporte reduced-motion
+
 ## [1.1.0] — 2026-04-07
 
 ### Añadido
