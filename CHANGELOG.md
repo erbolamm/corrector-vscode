@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1] - 2026-09-11
+
+### Añadido
+- **Preflight de memoria al arrancar**: si `corrector.iaLocal` está activa y quedan menos de 1 GB libres, aparece un aviso con la opción de desactivarla. Alinear con ApliArte AI (`apliarte.apliarte-ai` 0.9.9).
+- **Botón «Desactivar IA local» en el panel**: cuando el preflight del propio panel impide cargar un modelo, el usuario puede apagar la inferencia desde el propio panel, sin tener que abrir los Ajustes.
+- **Suite de pruebas del panel**: 24 pruebas nuevas para `iaLocalPanel.ts` que cubren el contrato del webview (CSP, cableado de ids, enrutado de mensajes, ciclo de vida) y el preflight de memoria. Total: 305/305 en verde.
+
 ## [2.0.0] — 2026-09-11
 
 ### Añadido
