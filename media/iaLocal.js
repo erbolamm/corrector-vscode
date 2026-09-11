@@ -16,6 +16,7 @@
     installedModels: [],
     memoryInfo: null,
     warnedModelId: null,
+    sharedFolder: null,
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -307,14 +308,67 @@
             }
           }
 
-          function updateSharedNotice(isShared) {
-            const notice = $('shared-notice');
-            if (isShared) {
-              notice.classList.remove('hidden');
-            } else {
-              notice.classList.add('hidden');
-            }
-          }
+function updateSharedNotice(isShared) {
+    const notice = $('shared-notice');
+    if (isShared) {
+      notice.classList.remove('hidden');
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function renderSharedFolderSection() {
+    const section = $('shared-folder-section');
+    const pathEl = $('shared-folder-path');
+    const statusEl = $('shared-folder-status');
+    const actionsEl = $('shared-folder-actions');
+
+    if (!state.sharedFolder || !state.sharedFolder.isShared) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    section.classList.remove('hidden');
+
+    const { path, valid, modelCount, reason } = state.sharedFolder;
+
+    pathEl.textContent = `📂 ${path}`;
+    pathEl.className = 'path';
+
+    statusEl.innerHTML = '';
+    actionsEl.innerHTML = '';
+
+    if (valid) {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-loaded';
+      badge.textContent = `✅ Compatible — ${modelCount} modelo(s) ONNX`;
+      statusEl.appendChild(badge);
+
+      const useBtn = document.createElement('button');
+      useBtn.className = 'btn btn-sm btn-primary';
+      useBtn.textContent = 'Usar esta carpeta';
+      useBtn.addEventListener('click', function () {
+        chooseModelsDir();
+        // Pre-fill with the shared folder path
+        setTimeout(function () {
+          // The dialog will open with the current folder as default
+        }, 100);
+      });
+      actionsEl.appendChild(useBtn);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-not-installed';
+      badge.textContent = '❌ No compatible';
+      statusEl.appendChild(badge);
+
+      const reasonEl = document.createElement('div');
+      reasonEl.style.fontSize = '10px';
+      reasonEl.style.color = 'var(--vscode-descriptionForeground)';
+      reasonEl.style.marginTop = '4px';
+      reasonEl.textContent = reason || 'Razón desconocida';
+      statusEl.appendChild(reasonEl);
+    }
+  }
 
   function showProgress(message, pct) {
     const section = $('progress-section');
@@ -451,10 +505,17 @@
         state.currentModel = msg.currentModel || null;
         state.installedModels = msg.installedModels || [];
         state.memoryInfo = msg.memoryInfo || null;
+        state.sharedFolder = msg.sharedFolder || null;
         updateStatusBar();
         renderRecommendedModels();
         renderInstalledModels();
         updateFolderSection();
+        renderSharedFolderSection();
+        break;
+
+      case 'sharedFolder':
+        state.sharedFolder = msg;
+        renderSharedFolderSection();
         break;
 
       case 'sharedFolder':

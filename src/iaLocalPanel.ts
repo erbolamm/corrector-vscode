@@ -18,7 +18,8 @@ import {
   InstalledModel,
   checkMemoryForModel,
   estimateModelSize,
-  detectSharedWithApliarteAI,
+  getApliArteAiModelsDirFromConfig,
+  validateSharedModelsDir,
 } from './iaLocal';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -151,6 +152,27 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       memoryInfo = { available: memCheck.available, required: memCheck.required };
     }
 
+    // Detectar y validar carpeta compartida con apliarte-ai
+    let sharedFolderInfo: {
+      isShared: boolean;
+      path?: string;
+      valid?: boolean;
+      modelCount?: number;
+      reason?: string;
+    } = { isShared: false };
+
+    const apliarteDir = getApliArteAiModelsDirFromConfig(vscode);
+    if (apliarteDir) {
+      const validation = await validateSharedModelsDir(apliarteDir);
+      sharedFolderInfo = {
+        isShared: true,
+        path: apliarteDir,
+        valid: validation.valid,
+        modelCount: validation.modelCount,
+        reason: validation.reason,
+      };
+    }
+
     this._post({
       type: 'statusUpdate',
       isModelLoaded: isLoaded,
@@ -159,11 +181,8 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       currentModel: currentModelId,
       installedModels: installed,
       memoryInfo,
+      sharedFolder: sharedFolderInfo,
     });
-
-    // Enviar estado de carpeta compartida
-    const shared = detectSharedWithApliarteAI(modelsDir);
-    this._post({ type: 'sharedFolder', isShared: shared.isShared });
   }
 
   private _getModelsDir(): string {
@@ -312,9 +331,6 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     const cfg = vscode.workspace.getConfiguration('corrector');
     await cfg.update('modelsDir', folderPath, vscode.ConfigurationTarget.Global);
 
-    const shared = detectSharedWithApliarteAI(folderPath);
-    this._post({ type: 'sharedFolder', isShared: shared.isShared });
-
     this._sendStatus();
   }
 
@@ -444,6 +460,16 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         <div id="folder-actions">
           <button class="btn" id="btn-choose-folder">Elegir carpeta…</button>
           <div id="shared-notice" class="hidden">📁 Carpeta compartida con ApliArte AI</div>
+        </div>
+      </div>
+
+      <!-- Shared folder with ApliArte AI -->
+      <div id="shared-folder-section" class="hidden">
+        <div class="section-header">📁 Carpeta detectada en ApliArte AI</div>
+        <div id="shared-folder-info">
+          <div id="shared-folder-path" class="path"></div>
+          <div id="shared-folder-status"></div>
+          <div id="shared-folder-actions"></div>
         </div>
       </div>
     </section>

@@ -617,39 +617,57 @@ export function scanInstalledModels(modelsDir?: string): InstalledModel[] {
     return results;
 }
 
+/**
+ * Detecta la carpeta de modelos configurada en apliarte-ai (extensión separada).
+ * Esta función se llama desde el panel provider que tiene acceso a vscode.
+ */
+export function getApliArteAiModelsDirFromConfig(vscode: any): string | null {
+    try {
+        const cfg = vscode.workspace.getConfiguration('apliarteAi');
+        const rawDir = cfg.get('modelsDir');
+        const dir = typeof rawDir === 'string' ? rawDir.trim() : '';
+        return dir || null;
+    } catch {
+        return null;
+    }
+}
 
 /**
- * Detecta si una ruta de carpeta de modelos es compartida con apliarte-ai.
- * Busca el archivo de config de apliarte-ai y compara rutas de caché.
+ * Valida una carpeta de modelos compartida:
+ * - Existe
+ * - Es accesible (lectura)
+ * - No tiene path traversal
+ * - Contiene al menos un modelo ONNX compatible
+ * Retorna { valid: boolean, modelCount: number, reason?: string, models?: InstalledModel[] }
  */
-export function detectSharedWithApliarteAI(modelsDir?: string): {
-    isShared: boolean;
-    apliarteAIDir?: string;
-} {
-    const possibleRoots = [
-        join(homedir(), 'repos'),
-        join(homedir(), 'trabajo'),
-        join(homedir(), 'Desktop'),
-    ];
-
-    for (const root of possibleRoots) {
-        if (!existsSync(root)) { continue; }
-        const aiDir = join(root, 'apliarte-ai');
-        if (!existsSync(aiDir)) { continue; }
-
-        // apliarte-ai usa ~/.cache/huggingface/hub por defecto
-        const apliarteCache = join(homedir(), '.cache', 'huggingface', 'hub');
-
-        const normalize = (p: string) => p.replace(/[\\\/]+$/, '').toLowerCase();
-        if (modelsDir && normalize(modelsDir).startsWith(normalize(apliarteCache))) {
-            return { isShared: true, apliarteAIDir: aiDir };
-        }
-
-        // También compartir si es el cache de HF (ambos lo usan por defecto)
-        if (modelsDir && normalize(modelsDir) === normalize(apliarteCache)) {
-            return { isShared: true, apliarteAIDir: aiDir };
-        }
+export async function validateSharedModelsDir(dir: string): Promise<{
+    valid: boolean;
+    modelCount: number;
+    reason?: string;
+    models?: InstalledModel[];
+}> {
+    // Security: no traversal
+    if (!dir || dir.includes('..') || dir.includes('/../') || dir.includes('\\..')) {
+        return { valid: false, modelCount: 0, reason: 'Ruta no válida (path traversal)' };
     }
 
-    return { isShared: false };
+    // Existence
+    if (!existsSync(dir)) {
+        return { valid: false, modelCount: 0, reason: 'La carpeta no existe' };
+    }
+
+    // Readable
+    try {
+        readdirSync(dir);
+    } catch {
+        return { valid: false, modelCount: 0, reason: 'Sin permisos de lectura' };
+    }
+
+    // Scan for ONNX models
+    const models = scanInstalledModels(dir);
+    if (models.length === 0) {
+        return { valid: false, modelCount: 0, reason: 'No se encontraron modelos ONNX compatibles' };
+    }
+
+    return { valid: true, modelCount: models.length, models };
 }
