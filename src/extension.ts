@@ -22,6 +22,7 @@ import {
     IAConfig,
     IABackend,
 } from './iaLocal';
+import { IAPanelProvider } from './iaLocalPanel';
 
 let motor: MotorCorrector;
 let contextoGlobal: vscode.ExtensionContext;
@@ -474,6 +475,7 @@ export function activate(context: vscode.ExtensionContext) {
                         await instalarDepsTransformers((msg) => {
                             progress.report({ message: msg });
                         });
+                        await contextoGlobal.globalState.update('iaLocal_depsInstalled', true);
                         vscode.window.showInformationMessage(
                             'Corrector: transformers.js instalado. Usa "Corrector: Cargar modelo de IA local" para descargar el modelo.'
                         );
@@ -506,6 +508,8 @@ export function activate(context: vscode.ExtensionContext) {
                                 message: `${info.status}${pct}${info.file ? ' — ' + info.file : ''}`,
                             });
                         });
+                        const modelId = 'onnx-community/Qwen2.5-0.5B-Instruct';
+                        await contextoGlobal.globalState.update('iaLocal_currentModel', modelId);
                         vscode.window.showInformationMessage(
                             'Corrector: Modelo de IA local cargado y listo.'
                         );
@@ -517,6 +521,15 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             );
         }
+    );
+
+    // ─── PANEL DE IA LOCAL ─────────────────────────────────────────────────
+    const iaPanelProvider = new IAPanelProvider(context.extensionUri, context.globalState);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(IAPanelProvider.viewType, iaPanelProvider),
+        vscode.commands.registerCommand('corrector.openIaLocalPanel', () => {
+            vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
+        })
     );
 
     // ─── REGISTRAR CODE ACTION PROVIDER ──────────────────────────────────
@@ -547,6 +560,7 @@ export function activate(context: vscode.ExtensionContext) {
         cmdInstalarIALocal,
         cmdCargarModeloLocal,
         codeActionProvider,
+        iaPanelProvider,
         barraEstado,
         diagnosticos,
         onDidChange,

@@ -1,0 +1,416 @@
+/**
+ * IA Local Panel — webview script
+ * Handles communication with the VS Code WebviewViewProvider.
+ */
+
+(function () {
+  'use strict';
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const state = {
+    isModelLoaded: false,
+    isDepsInstalled: false,
+    modelsDir: '',
+    currentModel: null,
+    recommendedModels: [],
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function show(el) { el.classList.add('visible'); }
+  function hide(el) { el.classList.remove('visible'); }
+
+  // ── API to VS Code ──────────────────────────────────────────────────────
+  function post(data) {
+    window.parent.postMessage({ type: 'vscodeApi', ...data }, '*');
+  }
+
+  function requestStatus() {
+    post({ command: 'requestStatus' });
+  }
+
+  function requestRecommendedModels() {
+    post({ command: 'requestRecommendedModels' });
+  }
+
+  function installDeps() {
+    post({ command: 'installDeps' });
+  }
+
+  function loadModel(modelId) {
+    post({ command: 'loadModel', modelId });
+  }
+
+  function unloadModel() {
+    post({ command: 'unloadModel' });
+  }
+
+  function chooseModelsDir() {
+    post({ command: 'chooseModelsDir' });
+  }
+
+  function searchModels(query) {
+    post({ command: 'searchHuggingFace', query });
+  }
+
+  // ── UI updates ──────────────────────────────────────────────────────────
+  function updateStatusBar() {
+    const dot = $('status-dot');
+    const label = $('status-label');
+    const modelLabel = $('current-model');
+
+    dot.className = '';
+    if (state.isModelLoaded) {
+      dot.classList.add('loaded');
+      label.textContent = 'IA local: modelo cargado';
+      modelLabel.textContent = state.currentModel
+        ? esc(state.currentModel.split('/').pop())
+        : '';
+    } else if (!state.isDepsInstalled) {
+      dot.classList.add('no-deps');
+      label.textContent = 'IA local: sin instalar';
+      modelLabel.textContent = '';
+    } else {
+      label.textContent = 'IA local: listo (sin modelo)';
+      modelLabel.textContent = '';
+    }
+  }
+
+  function getModelStatus(modelId) {
+    if (!state.isModelLoaded || state.currentModel !== modelId) {
+      return state.isDepsInstalled ? 'not-installed' : 'no-deps';
+    }
+    return 'loaded';
+  }
+
+  function renderRecommendedModels() {
+    const container = $('recommended-models');
+    container.innerHTML = '';
+
+    state.recommendedModels.forEach(function (model) {
+      const status = getModelStatus(model.id);
+      const isLoading = $('progress-section').classList.contains('visible');
+
+      const card = document.createElement('div');
+      card.className = 'model-card';
+
+      // Top row: name + badge + actions
+      const top = document.createElement('div');
+      top.className = 'model-card-top';
+
+      const info = document.createElement('div');
+      info.className = 'model-info';
+
+      const name = document.createElement('div');
+      name.className = 'model-name';
+      name.textContent = model.label;
+
+      const meta = document.createElement('div');
+      meta.className = 'model-meta';
+
+      const size = document.createElement('span');
+      size.textContent = model.size;
+      meta.appendChild(size);
+
+      if (model.recommended) {
+        const badge = document.createElement('span');
+        badge.className = 'badge badge-recommended';
+        badge.textContent = 'Recomendado';
+        meta.appendChild(badge);
+      }
+
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'badge';
+      statusBadge.id = 'badge-' + esc(model.id.replace(/\//g, '_'));
+      if (status === 'loaded') {
+        statusBadge.className += ' badge-loaded';
+        statusBadge.textContent = 'Cargado';
+      } else if (status === 'not-installed') {
+        statusBadge.className += ' badge-not-installed';
+        statusBadge.textContent = 'Sin instalar';
+      } else {
+        statusBadge.className += ' badge-not-installed';
+        statusBadge.textContent = 'Sin instalar';
+      }
+      meta.appendChild(statusBadge);
+
+      info.appendChild(name);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'model-card-actions';
+
+      if (state.isModelLoaded && state.currentModel === model.id) {
+        // Model loaded → show unload button
+        const unloadBtn = document.createElement('button');
+        unloadBtn.className = 'btn btn-sm';
+        unloadBtn.textContent = 'Liberar';
+        unloadBtn.disabled = isLoading;
+        unloadBtn.addEventListener('click', unloadModel);
+        actions.appendChild(unloadBtn);
+      } else {
+        // Not loaded → show load button
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn btn-sm btn-primary';
+        loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar';
+        loadBtn.disabled = isLoading;
+        loadBtn.addEventListener('click', function () {
+          if (!state.isDepsInstalled) {
+            installDeps();
+          } else {
+            loadModel(model.id);
+          }
+        });
+        actions.appendChild(loadBtn);
+      }
+
+      top.appendChild(info);
+      top.appendChild(actions);
+
+      card.appendChild(top);
+      container.appendChild(card);
+    });
+  }
+
+  function updateFolderSection() {
+    const pathEl = $('folder-path');
+    const notice = $('shared-notice');
+
+    if (state.modelsDir) {
+      pathEl.textContent = state.modelsDir;
+      pathEl.classList.remove('empty');
+      // Check if it looks like the ApliArte AI models folder
+      if (state.modelsDir.includes('.apliarte-ai') || state.modelsDir.includes('apliarte-ai')) {
+        show(notice);
+      } else {
+        hide(notice);
+      }
+    } else {
+      pathEl.textContent = 'Por defecto: caché de HuggingFace (~/.cache/huggingface/)';
+      pathEl.classList.add('empty');
+      hide(notice);
+    }
+  }
+
+  function showProgress(message, pct) {
+    const section = $('progress-section');
+    const label = $('progress-label');
+    const fill = $('progress-fill');
+
+    if (pct != null && pct >= 0) {
+      label.textContent = message;
+      fill.style.width = pct + '%';
+      show(section);
+    } else {
+      label.textContent = message;
+      fill.style.width = '0%';
+      show(section);
+    }
+  }
+
+  function hideProgress() {
+    const section = $('progress-section');
+    const fill = $('progress-fill');
+    fill.style.width = '0%';
+    hide(section);
+  }
+
+  function showError(message) {
+    const section = $('error-section');
+    section.textContent = message;
+    show(section);
+  }
+
+  function hideError() {
+    hide($('error-section'));
+  }
+
+  function renderSearchResults(results) {
+    const container = $('search-results');
+    container.innerHTML = '';
+
+    if (!results || results.length === 0) {
+      container.classList.remove('visible');
+      return;
+    }
+
+    results.slice(0, 10).forEach(function (model) {
+      const item = document.createElement('div');
+      item.className = 'search-result-item';
+
+      const name = document.createElement('div');
+      name.className = 'search-result-name';
+      name.textContent = model.id;
+
+      const meta = document.createElement('div');
+      meta.className = 'search-result-meta';
+
+      if (model.downloads) {
+        const dl = document.createElement('span');
+        dl.textContent = formatDownloads(model.downloads);
+        meta.appendChild(dl);
+      }
+      if (model.sha) {
+        const fmt = document.createElement('span');
+        fmt.textContent = 'ONNX';
+        meta.appendChild(fmt);
+      }
+
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'btn btn-sm';
+      loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar';
+      loadBtn.addEventListener('click', function () {
+        if (!state.isDepsInstalled) {
+          installDeps();
+        }
+        loadModel(model.id);
+      });
+
+      item.appendChild(name);
+      item.appendChild(meta);
+      item.appendChild(loadBtn);
+      container.appendChild(item);
+    });
+
+    show(container);
+  }
+
+  function formatDownloads(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M downloads';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K downloads';
+    return n + ' downloads';
+  }
+
+  // ── Message handler ──────────────────────────────────────────────────────
+  window.addEventListener('message', function (event) {
+    const msg = event.data;
+    if (!msg || msg.source !== 'vscodeApi') return;
+
+    hideError();
+
+    switch (msg.type) {
+      case 'statusUpdate':
+        state.isModelLoaded = !!msg.isModelLoaded;
+        state.isDepsInstalled = !!msg.isDepsInstalled;
+        state.modelsDir = msg.modelsDir || '';
+        state.currentModel = msg.currentModel || null;
+        updateStatusBar();
+        renderRecommendedModels();
+        updateFolderSection();
+        break;
+
+      case 'progress':
+        showProgress(msg.message || '', msg.progress);
+        break;
+
+      case 'modelUnloaded':
+        state.isModelLoaded = false;
+        state.currentModel = null;
+        hideProgress();
+        updateStatusBar();
+        renderRecommendedModels();
+        break;
+
+      case 'modelLoaded':
+        state.isModelLoaded = true;
+        state.currentModel = msg.modelId || null;
+        hideProgress();
+        updateStatusBar();
+        renderRecommendedModels();
+        break;
+
+      case 'recommendedModels':
+        state.recommendedModels = msg.models || [];
+        renderRecommendedModels();
+        break;
+
+      case 'searchResults':
+        renderSearchResults(msg.results || []);
+        break;
+
+      case 'error':
+        hideProgress();
+        showError(msg.message || 'Error desconocido');
+        renderRecommendedModels(); // re-render to re-enable buttons
+        break;
+
+      case 'depsInstalled':
+        state.isDepsInstalled = true;
+        updateStatusBar();
+        renderRecommendedModels();
+        break;
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  function init() {
+    requestStatus();
+    requestRecommendedModels();
+  }
+
+  // Search input handler (debounced)
+  let searchTimer;
+  $('search-input').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    const query = this.value.trim();
+    if (query.length < 3) {
+      $('search-results').classList.remove('visible');
+      return;
+    }
+    searchTimer = setTimeout(function () {
+      searchModels(query);
+    }, 600);
+  });
+
+  // Search on Enter
+  $('search-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      clearTimeout(searchTimer);
+      const query = this.value.trim();
+      if (query.length >= 3) {
+        searchModels(query);
+      }
+    }
+  });
+
+  // Listen for webview ready
+  window.addEventListener('load', function () {
+    // Signal ready to provider
+    post({ command: 'webviewReady' });
+  });
+
+  // The provider sends 'webviewReady' ack which triggers actual init
+  // Fallback: request status after a short delay
+  setTimeout(function () {
+    if (state.recommendedModels.length === 0) {
+      init();
+    }
+  }, 300);
+
+  // Override the init to be triggered by provider
+  window.addEventListener('message', function handler(event) {
+    const msg = event.data;
+    if (msg && msg.source === 'vscodeApi' && msg.type === 'webviewReady') {
+      window.removeEventListener('message', handler);
+      init();
+    }
+  });
+})();
