@@ -330,12 +330,23 @@ body {
   display: none;
   flex-direction: column;
   gap: 4px;
-  max-height: 200px;
+  max-height: 40vh;
   overflow-y: auto;
 }
 
 #search-results.visible {
   display: flex;
+}
+
+#search-results::-webkit-scrollbar {
+  width: 6px;
+}
+#search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+#search-results::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, #424242);
+  border-radius: 3px;
 }
 
 .search-result-item {
