@@ -17,3 +17,5 @@ out/**/*.d.ts
 skills/**
 **/skills/**
 .gemini/**
+entregas/**
+*.vsix
