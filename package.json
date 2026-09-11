@@ -206,21 +206,20 @@
       }
     ],
     "viewsContainers": {
-      "panel": [
+      "activitybar": [
         {
           "id": "corrector.iaLocalPanel",
-          "title": "IA Local",
+          "title": "Corrector",
           "icon": "icon.png"
         }
       ]
     },
     "views": {
-      "panel": [
+      "activitybar": [
         {
           "type": "webview",
           "id": "corrector.iaLocalPanel",
-          "name": "IA Local",
-          "when": "corrector.iaLocal == true"
+          "name": "IA Local"
         }
       ]
     }
