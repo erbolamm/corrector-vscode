@@ -395,12 +395,38 @@ function updateSharedNotice(isShared) {
 
   function showError(message) {
     const section = $('error-section');
+    section.classList.remove('info');
     section.textContent = message;
     show(section);
   }
 
   function hideError() {
     hide($('error-section'));
+  }
+
+  // Mensaje neutro en el mismo hueco: no todo lo que se anuncia es un fallo.
+  function showInfo(message) {
+    const section = $('error-section');
+    section.innerHTML = '';
+    section.classList.add('info');
+    section.textContent = message;
+    show(section);
+  }
+
+  // Salida para el aviso de memoria: apaga la IA local desde el propio panel,
+  // sin obligar a buscar el ajuste a mano.
+  function appendDisableIaLocalButton() {
+    const section = $('error-section');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-danger';
+    btn.id = 'btn-disable-ia-local';
+    btn.textContent = 'Desactivar IA local';
+    btn.style.marginTop = '8px';
+    btn.addEventListener('click', function () {
+      post({ command: 'disableIaLocal' });
+    });
+    section.appendChild(btn);
+    show(section);
   }
 
   // Warning with option to proceed
@@ -557,16 +583,29 @@ function updateSharedNotice(isShared) {
         // Memory warning - show with option to proceed
         state.warnedModelId = msg.modelId || null;
         hideProgress();
-        showWarning(msg.message || 'Advertencia de memoria', msg.modelId);
-        renderRecommendedModels(); // re-render to show proceed button
-        break;
+            showWarning(msg.message || 'Advertencia de memoria', msg.modelId);
+            if (msg.canDisableIaLocal) {
+              appendDisableIaLocalButton();
+            }
+            renderRecommendedModels(); // re-render to show proceed button
+            break;
 
-      case 'error':
-        hideProgress();
-        state.warnedModelId = null;
-        showError(msg.message || 'Error desconocido');
-        renderRecommendedModels(); // re-render to re-enable buttons
-        break;
+          case 'iaLocalDisabled':
+            hideProgress();
+            state.warnedModelId = null;
+            showInfo('IA local desactivada. Puedes volver a activarla en Ajustes, buscando corrector.iaLocal.');
+            renderRecommendedModels();
+            break;
+
+          case 'error':
+            hideProgress();
+            state.warnedModelId = null;
+            showError(msg.message || 'Error desconocido');
+            if (msg.canDisableIaLocal) {
+              appendDisableIaLocalButton();
+            }
+            renderRecommendedModels(); // re-render to re-enable buttons
+            break;
 
       case 'depsInstalled':
         state.isDepsInstalled = true;

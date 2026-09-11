@@ -19,10 +19,12 @@ import {
     instalarDepsTransformers,
     cargarModeloLocal,
     isModelLoaded,
+    getAvailableMemory,
     IAConfig,
     IABackend,
 } from './iaLocal';
 import { IAPanelProvider } from './iaLocalPanel';
+import { preflightMemoriaIA } from './memoriaPreflight';
 
 let motor: MotorCorrector;
 let contextoGlobal: vscode.ExtensionContext;
@@ -530,12 +532,29 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('corrector.openIaLocalPanel', () => {
             vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
         }),
-        vscode.commands.registerCommand('corrector.abrirIALocal', () => {
-            vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
-        })
-    );
+            vscode.commands.registerCommand('corrector.abrirIALocal', () => {
+                vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
+            })
+        );
 
-    // ─── REGISTRAR CODE ACTION PROVIDER ──────────────────────────────────
+        // ─── PREFLIGHT DE MEMORIA (alineado con ApliArte AI) ─────────────────
+        // Si la IA local está activa y queda muy poca RAM, avisa y ofrece
+        // desactivarla. No espera: el panel ya está registrado y esto no debe
+        // retrasar la activación.
+        void preflightMemoriaIA({
+            iaLocalActiva: () =>
+                vscode.workspace.getConfiguration('corrector').get<boolean>('iaLocal', false) === true,
+            memoriaLibre: () => getAvailableMemory(),
+            avisar: async (mensaje, ...botones) =>
+                vscode.window.showWarningMessage(mensaje, ...botones),
+            desactivarIaLocal: async () => {
+                await vscode.workspace
+                    .getConfiguration('corrector')
+                    .update('iaLocal', false, vscode.ConfigurationTarget.Global);
+            },
+        });
+
+        // ─── REGISTRAR CODE ACTION PROVIDER ──────────────────────────────────
     const codeActionProvider = vscode.languages.registerCodeActionsProvider(
         { scheme: 'file' },
         new CorrectorCodeActionProvider(),

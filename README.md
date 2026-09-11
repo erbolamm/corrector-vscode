@@ -79,6 +79,32 @@ Con las correcciones detalladas:
 - **Corrector: Ver diccionario personal** — Lista y elimina entradas
 - **Corrector: Ver estadísticas de correcciones** — Estadísticas de uso
 - **Corrector: Enviar sugerencias por email** — Envía `.corrector-sugerencias.md` al desarrollador
+- **Corrector: Abrir IA local** — Abre el panel lateral de IA local (buscar, descargar y cargar modelos)
+
+## Panel de IA local
+
+La 2.0.0 añade un panel lateral para gestionar los modelos que corren en tu máquina, sin enviar nada
+a ningún servidor. Se abre con **Corrector: Abrir IA local** o desde su icono en la barra de actividad.
+
+| Sección | Qué hace |
+|---------|----------|
+| **Modelo actual** | Qué modelo está cargado, con botón para liberarlo y devolver la memoria |
+| **Modelos instalados** | Los que ya tienes en disco, con su tamaño. Se leen de tu carpeta de modelos y de la caché de HuggingFace (`~/.cache/huggingface/hub`) |
+| **Recomendados** | SmolLM2 360M y Qwen 2.5 0.5B, listos para cargar con un botón |
+| **Buscar en HuggingFace** | Busca modelos ONNX compatibles con transformers.js y muestra nombre, repositorio y descargas |
+| **Carpeta de modelos** | Dónde se guardan y cuántos hay. Si detecta la carpeta configurada en ApliArte AI, ofrece reutilizarla en vez de descargar lo mismo dos veces |
+
+Antes de cargar un modelo, el panel **comprueba la memoria disponible**. Si no llega, avisa y no
+carga: un modelo más grande que tu RAM puede dejar el equipo sin responder, y eso no se arregla
+esperando.
+
+Los modelos se descargan a un archivo temporal dentro de la carpeta permitida, se comprueba su
+integridad y solo entonces se renombran a su destino. Un archivo a medias nunca se confunde con un
+modelo válido, y no se acepta ningún identificador que no sea del formato `org/modelo` de un
+repositorio de la lista permitida.
+
+El panel se pinta con `textContent` y nada de `innerHTML` con texto de fuera, tiene tema claro y
+oscuro, y respeta `prefers-reduced-motion`.
 
 ## Configuración
 

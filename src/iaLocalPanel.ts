@@ -122,6 +122,10 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             break;
           }
 
+          case 'disableIaLocal':
+            await this._disableIaLocal();
+            break;
+
           default:
             break;
         }
@@ -196,6 +200,19 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     return this._globalState.get<boolean>('iaLocal_depsInstalled', false);
   }
 
+  /**
+   * Apaga la IA local desde el propio panel, cuando el preflight de memoria
+   * impide cargar un modelo. Es la misma salida que ofrece el aviso de arranque
+   * en ApliArte AI: el usuario no se queda encerrado con un aviso sin acción.
+   */
+  private async _disableIaLocal(): Promise<void> {
+    await vscode.workspace
+      .getConfiguration('corrector')
+      .update('iaLocal', false, vscode.ConfigurationTarget.Global);
+    this._post({ type: 'iaLocalDisabled' });
+    await this._sendStatus();
+  }
+
   // ── Install deps ─────────────────────────────────────────────────────────
 
   private async _installDeps(): Promise<void> {
@@ -249,7 +266,13 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     // Pre-check memory and show warning to user before starting
     const memCheck = await checkMemoryForModel(modelId);
     if (!memCheck.ok) {
-      this._post({ type: 'error', message: memCheck.warning ?? 'Memoria insuficiente.' });
+      // Se ofrece desactivar la IA local: si no hay memoria ni para arrancar,
+      // el usuario necesita una salida, no solo un aviso.
+      this._post({
+        type: 'error',
+        message: memCheck.warning ?? 'Memoria insuficiente.',
+        canDisableIaLocal: true,
+      });
       return;
     }
     if (memCheck.warning) {
@@ -258,6 +281,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         type: 'warning',
         message: memCheck.warning,
         modelId,
+        canDisableIaLocal: true,
       });
       // Wait for user to acknowledge (they'll click load again)
       return;

@@ -256,6 +256,13 @@ body {
   display: block;
 }
 
+/* Mismo hueco, tono neutro: se usa para confirmaciones, no para fallos. */
+#error-section.info {
+  background: #1e3a5f30;
+  border-color: #3b82f640;
+  color: #93c5fd;
+}
+
 /* ── Folder section ──────────────────────────────────── */
 #folder-section {
   border: 1px solid var(--vscode-panel-border);
