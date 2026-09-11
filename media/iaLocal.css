@@ -1,5 +1,6 @@
 /* ── Reset ─────────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
+.hidden { display: none !important; }
 
 body {
   font-family: var(--vscode-font-family);
@@ -367,4 +368,58 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Theme toggle ──────────────────────────────────────── */
+.theme-toggle {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 100;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.theme-toggle:hover {
+  background: var(--vscode-button-hoverBackground);
+  transform: scale(1.05);
+}
+
+.theme-toggle:focus {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.theme-icon {
+  display: block;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.theme-icon.hidden {
+  display: none;
+}
+
+html[data-theme="light"] #icon-sun,
+html[data-theme="dark"] #icon-moon {
+  display: none;
+}
+
+html[data-theme="light"] #icon-moon,
+html[data-theme="dark"] #icon-sun {
+  display: block;
+}
+
+/* Adjust content padding for theme toggle */
+body {
+  padding-top: 48px;
 }

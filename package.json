@@ -122,10 +122,6 @@
         "title": "Corrector: Instalar IA local (transformers.js)"
       },
       {
-        "command": "corrector.openIaLocalPanel",
-        "title": "Corrector: Panel de IA local"
-      },
-      {
         "command": "corrector.cargarModeloLocal",
         "title": "Corrector: Cargar modelo de IA local"
       }
@@ -196,11 +192,6 @@
           "default": "http://localhost:1234/v1",
           "markdownDescription": "**Endpoint de LM Studio.** Cambia solo si LM Studio corre en otro puerto."
         },
-        "corrector.modelsDir": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "**Carpeta donde se guardan los modelos de IA local.** Si está vacía se usa la caché de HuggingFace (por defecto ~/.cache/huggingface/)."
-        },
         "corrector.ollamaModel": {
           "type": "string",
           "default": "",
@@ -208,14 +199,6 @@
         }
       }
     }
-  },
-  "menus": {
-    "commandPalette": [
-      {
-    "command": "corrector.openIaLocalPanel",
-    "when": "editorTextFocus"
-      }
-    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",

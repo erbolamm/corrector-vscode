@@ -41,10 +41,127 @@ let _pipelineFn: any = null;
 let _generator: any = null;
 let _modelLoaded = false;
 
-const TRANSFORMERS_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
+export const TRANSFORMERS_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
 const PROMPT_CORRECCION = `You are a Spanish spell-checker. Fix ONLY spelling and grammar errors in the following text. Do NOT change meaning, style, or add words. Return ONLY the corrected text, nothing else.
 
 Text: `;
+
+// ─── MEMORY ESTIMATION ───────────────────────────────────────────────────────
+
+/**
+ * Estimated model sizes in bytes (q4 quantized).
+ * These are rough estimates for the recommended models.
+ */
+const MODEL_SIZE_ESTIMATES: Record<string, number> = {
+  'onnx-community/SmolLM2-360M-Instruct': 280 * 1024 * 1024,     // ~280 MB
+  'onnx-community/Qwen2.5-0.5B-Instruct': 380 * 1024 * 1024,      // ~380 MB
+};
+
+/**
+ * Returns estimated model size in bytes, or a conservative default.
+ */
+export function estimateModelSize(modelId: string): number {
+  return MODEL_SIZE_ESTIMATES[modelId] ?? 500 * 1024 * 1024; // default 500 MB
+}
+
+/**
+ * Returns available system memory in bytes (best effort, cross-platform).
+ * Falls back to a reasonable default if detection fails.
+ */
+export async function getAvailableMemory(): Promise<number> {
+  // Node.js doesn't have a direct API for available memory.
+  // We use process.memoryUsage() for heap, but need OS-level free memory.
+  // Try to read from /proc/meminfo (Linux) or use sysctl (macOS) or fallback.
+  try {
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const execFileAsync = promisify(execFile);
+
+    if (process.platform === 'linux') {
+      const { stdout } = await execFileAsync('cat', ['/proc/meminfo']);
+      const lines = stdout.split('\n');
+      let availableKb = 0;
+      for (const line of lines) {
+        if (line.startsWith('MemAvailable:')) {
+          availableKb = parseInt(line.split(/\s+/)[1], 10);
+          break;
+        }
+      }
+      if (availableKb > 0) return availableKb * 1024;
+    } else if (process.platform === 'darwin') {
+      const { stdout } = await execFileAsync('sysctl', ['-n', 'vm.stats.vm.v_free_count', 'vm.stats.vm.v_page_count']);
+      const lines = stdout.trim().split('\n');
+      if (lines.length >= 2) {
+        const freePages = parseInt(lines[0], 10);
+        const pageSize = 4096; // macOS default page size
+        return freePages * pageSize;
+      }
+    }
+  } catch {
+    // Ignore errors, fall back
+  }
+
+  // Conservative fallback: assume 2GB available for VS Code + extension host
+  return 2 * 1024 * 1024 * 1024;
+}
+
+/**
+ * Checks if there's enough memory to load a model.
+ * Returns { ok: boolean, available: number, required: number, warning?: string }
+ */
+export async function checkMemoryForModel(modelId: string): Promise<{
+  ok: boolean;
+  available: number;
+  required: number;
+  warning?: string;
+}> {
+  const required = estimateModelSize(modelId);
+  const available = await getAvailableMemory();
+
+  // Reserve 1.5GB for VS Code, OS, other extensions
+  const reserved = 1.5 * 1024 * 1024 * 1024;
+  const usable = available - reserved;
+
+  if (usable < 0) {
+    return {
+      ok: false,
+      available,
+      required,
+      warning: `Memoria disponible muy baja (${formatBytes(available)}). VS Code necesita ~1.5 GB.`,
+    };
+  }
+
+  if (required > usable) {
+    return {
+      ok: false,
+      available,
+      required,
+      warning: `Modelo requiere ~${formatBytes(required)} pero solo hay ~${formatBytes(usable)} disponibles (reservando 1.5 GB para sistema).`,
+    };
+  }
+
+  // Warning if tight (less than 500MB headroom)
+  if (usable - required < 500 * 1024 * 1024) {
+    return {
+      ok: true,
+      available,
+      required,
+      warning: `Queda poco margen (${formatBytes(usable - required)}). Considera cerrar otras apps.`,
+    };
+  }
+
+  return { ok: true, available, required };
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  }
+  if (bytes >= 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
+  }
+  return (bytes / 1024).toFixed(0) + ' KB';
+}
 
 // ─── PUBLIC API ─────────────────────────────────────────────────────────────
 
@@ -158,15 +275,35 @@ export async function instalarDepsTransformers(
 
 /**
  * Carga el modelo de transformers.js.
+ * Si ya hay un modelo cargado diferente, lo libera primero (auto-unload).
+ * Verifica memoria disponible antes de cargar.
  */
 export async function cargarModeloLocal(
+    modelId: string = TRANSFORMERS_MODEL,
     onProgress?: (info: { status: string; progress?: number; file?: string }) => void
 ): Promise<void> {
-    if (_modelLoaded) { return; }
+    // Auto-unload if different model is loaded
+    if (_modelLoaded && _currentModelId !== modelId) {
+        await descargarModelo();
+    }
+    if (_modelLoaded && _currentModelId === modelId) {
+        return; // Same model already loaded
+    }
+
+    // Memory check
+    const memCheck = await checkMemoryForModel(modelId);
+    if (!memCheck.ok) {
+        throw new Error(memCheck.warning ?? 'Memoria insuficiente para cargar el modelo.');
+    }
+    if (memCheck.warning) {
+        onProgress?.({ status: '⚠️ ' + memCheck.warning, progress: 0 });
+        // Wait a bit so user sees the warning
+        await new Promise(r => setTimeout(r, 1500));
+    }
 
     await ensureImported();
 
-    _generator = await _pipelineFn('text-generation', TRANSFORMERS_MODEL, {
+    _generator = await _pipelineFn('text-generation', modelId, {
         dtype: 'q4',
         progress_callback: (data: Record<string, unknown>) => {
             if (onProgress && data.status) {
@@ -180,10 +317,17 @@ export async function cargarModeloLocal(
     });
 
     _modelLoaded = true;
+    _currentModelId = modelId;
 }
+
+let _currentModelId: string | null = null;
 
 export function isModelLoaded(): boolean {
     return _modelLoaded;
+}
+
+export function getCurrentModelId(): string | null {
+    return _currentModelId;
 }
 
 export async function descargarModelo(): Promise<void> {
@@ -191,6 +335,7 @@ export async function descargarModelo(): Promise<void> {
         await _generator.dispose?.();
         _generator = null;
         _modelLoaded = false;
+        _currentModelId = null;
     }
 }
 
@@ -472,3 +617,39 @@ export function scanInstalledModels(modelsDir?: string): InstalledModel[] {
     return results;
 }
 
+
+/**
+ * Detecta si una ruta de carpeta de modelos es compartida con apliarte-ai.
+ * Busca el archivo de config de apliarte-ai y compara rutas de caché.
+ */
+export function detectSharedWithApliarteAI(modelsDir?: string): {
+    isShared: boolean;
+    apliarteAIDir?: string;
+} {
+    const possibleRoots = [
+        join(homedir(), 'repos'),
+        join(homedir(), 'trabajo'),
+        join(homedir(), 'Desktop'),
+    ];
+
+    for (const root of possibleRoots) {
+        if (!existsSync(root)) { continue; }
+        const aiDir = join(root, 'apliarte-ai');
+        if (!existsSync(aiDir)) { continue; }
+
+        // apliarte-ai usa ~/.cache/huggingface/hub por defecto
+        const apliarteCache = join(homedir(), '.cache', 'huggingface', 'hub');
+
+        const normalize = (p: string) => p.replace(/[\\\/]+$/, '').toLowerCase();
+        if (modelsDir && normalize(modelsDir).startsWith(normalize(apliarteCache))) {
+            return { isShared: true, apliarteAIDir: aiDir };
+        }
+
+        // También compartir si es el cache de HF (ambos lo usan por defecto)
+        if (modelsDir && normalize(modelsDir) === normalize(apliarteCache)) {
+            return { isShared: true, apliarteAIDir: aiDir };
+        }
+    }
+
+    return { isShared: false };
+}

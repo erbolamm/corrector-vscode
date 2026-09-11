@@ -500,7 +500,7 @@ export function activate(context: vscode.ExtensionContext) {
                 },
                 async (progress) => {
                     try {
-                        await cargarModeloLocal((info) => {
+                        await cargarModeloLocal('onnx-community/Qwen2.5-0.5B-Instruct', (info) => {
                             const pct = info.progress != null
                                 ? ` (${Math.round(info.progress)}%)`
                                 : '';

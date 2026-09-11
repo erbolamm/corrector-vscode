@@ -10,11 +10,15 @@ import {
   detectarBackends,
   instalarDepsTransformers,
   cargarModeloLocal,
-  isModelLoaded,
   descargarModelo,
+  isModelLoaded,
+  getCurrentModelId,
   scanInstalledModels,
   IAConfig,
   InstalledModel,
+  checkMemoryForModel,
+  estimateModelSize,
+  detectSharedWithApliarteAI,
 } from './iaLocal';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -135,19 +139,31 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
   // ── Status ──────────────────────────────────────────────────────────────
 
-  private _sendStatus(): void {
+  private async _sendStatus(): Promise<void> {
     const modelsDir = this._getModelsDir();
     const installed: InstalledModel[] = scanInstalledModels(modelsDir);
+    const currentModelId = getCurrentModelId();
+    const isLoaded = isModelLoaded();
+
+    let memoryInfo: { available: number; required: number } | null = null;
+    if (currentModelId) {
+      const memCheck = await checkMemoryForModel(currentModelId);
+      memoryInfo = { available: memCheck.available, required: memCheck.required };
+    }
+
     this._post({
       type: 'statusUpdate',
-      isModelLoaded: isModelLoaded(),
+      isModelLoaded: isLoaded,
       isDepsInstalled: this._areDepsInstalled(),
       modelsDir,
-      currentModel: isModelLoaded()
-        ? (this._globalState.get<string>('iaLocal_currentModel') ?? null)
-        : null,
+      currentModel: currentModelId,
       installedModels: installed,
+      memoryInfo,
     });
+
+    // Enviar estado de carpeta compartida
+    const shared = detectSharedWithApliarteAI(modelsDir);
+    this._post({ type: 'sharedFolder', isShared: shared.isShared });
   }
 
   private _getModelsDir(): string {
@@ -211,6 +227,23 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    // Pre-check memory and show warning to user before starting
+    const memCheck = await checkMemoryForModel(modelId);
+    if (!memCheck.ok) {
+      this._post({ type: 'error', message: memCheck.warning ?? 'Memoria insuficiente.' });
+      return;
+    }
+    if (memCheck.warning) {
+      // Show warning but allow proceeding
+      this._post({
+        type: 'warning',
+        message: memCheck.warning,
+        modelId,
+      });
+      // Wait for user to acknowledge (they'll click load again)
+      return;
+    }
+
     this._post({
       type: 'progress',
       message: 'Descargando modelo…',
@@ -219,7 +252,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
     try {
       // Download the model
-      await cargarModeloLocal((info: { status: string; progress?: number; file?: string }) => {
+      await cargarModeloLocal(modelId, (info: { status: string; progress?: number; file?: string }) => {
         const pct = info.progress != null ? Math.round(info.progress) : null;
         this._post({
           type: 'progress',
@@ -278,6 +311,9 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
     const cfg = vscode.workspace.getConfiguration('corrector');
     await cfg.update('modelsDir', folderPath, vscode.ConfigurationTarget.Global);
+
+    const shared = detectSharedWithApliarteAI(folderPath);
+    this._post({ type: 'sharedFolder', isShared: shared.isShared });
 
     this._sendStatus();
   }
@@ -355,6 +391,12 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   <title>IA Local — Corrector</title>
 </head>
 <body>
+  <!-- Theme toggle -->
+  <div id="theme-toggle" class="theme-toggle" title="Alternar tema claro/oscuro" role="button" tabindex="0" aria-label="Alternar tema claro/oscuro">
+    <svg id="icon-sun" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g></svg>
+    <svg id="icon-moon" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+  </div>
+
   <!-- Status bar -->
   <div id="status-bar">
     <div id="status-dot" class="no-deps"></div>
@@ -401,7 +443,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         <div id="folder-path" class="empty">Sin carpeta configurada</div>
         <div id="folder-actions">
           <button class="btn" id="btn-choose-folder">Elegir carpeta…</button>
-          <div id="shared-notice">📁 Carpeta compartida con ApliArte AI</div>
+          <div id="shared-notice" class="hidden">📁 Carpeta compartida con ApliArte AI</div>
         </div>
       </div>
     </section>

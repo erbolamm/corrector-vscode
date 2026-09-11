@@ -14,6 +14,8 @@
     currentModel: null,
     recommendedModels: [],
     installedModels: [],
+    memoryInfo: null,
+    warnedModelId: null,
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -109,6 +111,8 @@
     state.recommendedModels.forEach(function (model) {
       const status = getModelStatus(model.id);
       const isLoading = $('progress-section').classList.contains('visible');
+      const isWarned = state.warnedModelId === model.id;
+      const memInfo = state.memoryInfo && state.currentModel === model.id ? state.memoryInfo : null;
 
       const card = document.createElement('div');
       card.className = 'model-card';
@@ -136,6 +140,15 @@
         badge.className = 'badge badge-recommended';
         badge.textContent = 'Recomendado';
         meta.appendChild(badge);
+      }
+
+      // Memory info if available
+      if (memInfo && memInfo.required) {
+        const memSpan = document.createElement('span');
+        memSpan.style.fontSize = '9px';
+        memSpan.style.color = 'var(--vscode-descriptionForeground)';
+        memSpan.textContent = '~' + formatBytes(memInfo.required) + ' RAM';
+        meta.appendChild(memSpan);
       }
 
       const statusBadge = document.createElement('span');
@@ -167,6 +180,17 @@
         unloadBtn.disabled = isLoading;
         unloadBtn.addEventListener('click', unloadModel);
         actions.appendChild(unloadBtn);
+      } else if (isWarned) {
+        // Warned → show "Cargar de todos modos" button
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn btn-sm btn-primary';
+        loadBtn.textContent = 'Cargar de todos modos';
+        loadBtn.disabled = isLoading;
+        loadBtn.addEventListener('click', function () {
+          state.warnedModelId = null;
+          loadModel(model.id);
+        });
+        actions.appendChild(loadBtn);
       } else {
         // Not loaded → show load button
         const loadBtn = document.createElement('button');
@@ -186,10 +210,10 @@
       top.appendChild(info);
       top.appendChild(actions);
 
-          card.appendChild(top);
-          container.appendChild(card);
-        });
-      }
+      card.appendChild(top);
+      container.appendChild(card);
+    });
+  }
 
       function renderInstalledModels() {
         const container = $('installed-models');
@@ -271,25 +295,26 @@
         });
       }
 
-      function updateFolderSection() {
-    const pathEl = $('folder-path');
-    const notice = $('shared-notice');
+          function updateFolderSection() {
+            const pathEl = $('folder-path');
 
-    if (state.modelsDir) {
-      pathEl.textContent = state.modelsDir;
-      pathEl.classList.remove('empty');
-      // Check if it looks like the ApliArte AI models folder
-      if (state.modelsDir.includes('.apliarte-ai') || state.modelsDir.includes('apliarte-ai')) {
-        show(notice);
-      } else {
-        hide(notice);
-      }
-    } else {
-      pathEl.textContent = 'Por defecto: caché de HuggingFace (~/.cache/huggingface/)';
-      pathEl.classList.add('empty');
-      hide(notice);
-    }
-  }
+            if (state.modelsDir) {
+              pathEl.textContent = state.modelsDir;
+              pathEl.classList.remove('empty');
+            } else {
+              pathEl.textContent = 'Por defecto: cache de HuggingFace (~/.cache/huggingface/)';
+              pathEl.classList.add('empty');
+            }
+          }
+
+          function updateSharedNotice(isShared) {
+            const notice = $('shared-notice');
+            if (isShared) {
+              notice.classList.remove('hidden');
+            } else {
+              notice.classList.add('hidden');
+            }
+          }
 
   function showProgress(message, pct) {
     const section = $('progress-section');
@@ -322,6 +347,37 @@
 
   function hideError() {
     hide($('error-section'));
+  }
+
+  // Warning with option to proceed
+  function showWarning(message, modelId) {
+    const section = $('error-section');
+    section.innerHTML = '';
+    const msg = document.createElement('div');
+    msg.textContent = message;
+    msg.style.marginBottom = '8px';
+    section.appendChild(msg);
+
+    const proceedBtn = document.createElement('button');
+    proceedBtn.className = 'btn btn-sm btn-primary';
+    proceedBtn.textContent = 'Cargar de todos modos';
+    proceedBtn.addEventListener('click', function () {
+      hideError();
+      loadModel(modelId);
+    });
+    section.appendChild(proceedBtn);
+
+    show(section);
+  }
+
+  function formatBytes(bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
+    }
+    return (bytes / 1024).toFixed(0) + ' KB';
   }
 
   function renderSearchResults(results) {
@@ -394,10 +450,15 @@
         state.modelsDir = msg.modelsDir || '';
         state.currentModel = msg.currentModel || null;
         state.installedModels = msg.installedModels || [];
+        state.memoryInfo = msg.memoryInfo || null;
         updateStatusBar();
         renderRecommendedModels();
         renderInstalledModels();
         updateFolderSection();
+        break;
+
+      case 'sharedFolder':
+        updateSharedNotice(!!msg.isShared);
         break;
 
       case 'progress':
@@ -407,6 +468,7 @@
       case 'modelUnloaded':
         state.isModelLoaded = false;
         state.currentModel = null;
+        state.warnedModelId = null;
         hideProgress();
         updateStatusBar();
         renderRecommendedModels();
@@ -415,6 +477,7 @@
       case 'modelLoaded':
         state.isModelLoaded = true;
         state.currentModel = msg.modelId || null;
+        state.warnedModelId = null;
         hideProgress();
         updateStatusBar();
         renderRecommendedModels();
@@ -429,8 +492,17 @@
         renderSearchResults(msg.results || []);
         break;
 
+      case 'warning':
+        // Memory warning - show with option to proceed
+        state.warnedModelId = msg.modelId || null;
+        hideProgress();
+        showWarning(msg.message || 'Advertencia de memoria', msg.modelId);
+        renderRecommendedModels(); // re-render to show proceed button
+        break;
+
       case 'error':
         hideProgress();
+        state.warnedModelId = null;
         showError(msg.message || 'Error desconocido');
         renderRecommendedModels(); // re-render to re-enable buttons
         break;
@@ -447,6 +519,48 @@
   function init() {
     requestStatus();
     requestRecommendedModels();
+    initThemeToggle();
+  }
+
+  // ── Theme toggle ─────────────────────────────────────────────────────────
+  function initThemeToggle() {
+    const toggle = document.getElementById('theme-toggle');
+    if (!toggle) return;
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+
+    function getPreferredTheme() {
+      const saved = localStorage.getItem('iaLocal-theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem('iaLocal-theme', next);
+    }
+
+    // Initial apply
+    applyTheme(getPreferredTheme());
+
+    toggle.addEventListener('click', toggleTheme);
+    toggle.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleTheme();
+      }
+    });
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+      if (!localStorage.getItem('iaLocal-theme')) {
+        applyTheme(e.matches ? 'dark' : 'light');
+      }
+    });
   }
 
   // Search input handler (debounced)
