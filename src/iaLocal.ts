@@ -6,9 +6,10 @@
  */
 
 import { execFile } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync, createWriteStream, rmSync, renameSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { createHash } from 'crypto';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -670,4 +671,241 @@ export async function validateSharedModelsDir(dir: string): Promise<{
     }
 
     return { valid: true, modelCount: models.length, models };
+}
+
+// ─── SECURE MODEL DOWNLOAD ───────────────────────────────────────────────────
+
+/**
+ * Allowed model repositories for secure download.
+ * Only these repos can be downloaded to prevent supply chain attacks.
+ */
+const ALLOWED_MODEL_REPOS = new Set([
+    'onnx-community',
+    'huggingface',  // for some official models
+]);
+
+/**
+ * Validates a model ID against the allowlist.
+ * Returns { allowed: boolean, reason?: string }
+ */
+export function validateModelIdForDownload(modelId: string): { allowed: boolean; reason?: string } {
+    if (!modelId || typeof modelId !== 'string') {
+        return { allowed: false, reason: 'ID de modelo no válido' };
+    }
+
+    // Path traversal check
+    if (modelId.includes('..') || modelId.includes('/../') || modelId.includes('\\..')) {
+        return { allowed: false, reason: 'ID de modelo contiene path traversal' };
+    }
+
+    // Must be in format org/model
+    const parts = modelId.split('/');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        return { allowed: false, reason: 'Formato de modelo inválido (esperado: org/model)' };
+    }
+
+    const org = parts[0];
+    if (!ALLOWED_MODEL_REPOS.has(org)) {
+        return { allowed: false, reason: `Organización "${org}" no está en la lista permitida` };
+    }
+
+    return { allowed: true };
+}
+
+/**
+ * Result of a secure model download.
+ */
+export interface SecureDownloadResult {
+    success: boolean;
+    localPath?: string;
+    modelId?: string;
+    error?: string;
+}
+
+/**
+ * Securely downloads a model from HuggingFace Hub to the models directory.
+ * - Downloads to a temporary file first
+ * - Validates SHA256 hash if provided
+ * - Atomic rename to final destination
+ * - No incomplete files left as valid models
+ * - Progress callback for UI
+ */
+export async function downloadModelSecure(
+    modelId: string,
+    modelsDir: string,
+    onProgress?: (info: { status: string; progress?: number; downloaded?: number; total?: number }) => void,
+    signal?: AbortSignal
+): Promise<SecureDownloadResult> {
+    // Validate model ID against allowlist
+    const validation = validateModelIdForDownload(modelId);
+    if (!validation.allowed) {
+        return { success: false, error: validation.reason };
+    }
+
+    // Validate modelsDir
+    if (!modelsDir || modelsDir.includes('..') || modelsDir.includes('/../')) {
+        return { success: false, error: 'Carpeta de modelos no válida' };
+    }
+
+    try {
+        // Ensure models directory exists
+        mkdirSync(modelsDir, { recursive: true });
+
+        // Build HF Hub URL for the model
+        // HF Hub uses: https://huggingface.co/{modelId}/resolve/main/{filename}
+        // But we need to know the files. For transformers.js, it uses the HF Hub cache structure.
+        // We'll download via the HF Hub API to get the file list first.
+
+        onProgress?.({ status: 'Obteniendo información del modelo...', progress: 0 });
+
+        const apiUrl = `https://huggingface.co/api/models/${encodeURIComponent(modelId)}`;
+        const res = await fetch(apiUrl, { signal: signal ?? AbortSignal.timeout(10000) });
+
+        if (!res.ok) {
+            return { success: false, error: `No se pudo obtener info del modelo: ${res.status}` };
+        }
+
+        const modelInfo = await res.json() as {
+            siblings?: Array<{ rfilename: string; size?: number; lfs?: { sha256?: string } }>;
+        };
+
+        if (!modelInfo.siblings || modelInfo.siblings.length === 0) {
+            return { success: false, error: 'El modelo no tiene archivos' };
+        }
+
+        // Filter for ONNX/safetensors files (what transformers.js needs)
+        const relevantFiles = modelInfo.siblings.filter((f) =>
+            f.rfilename.endsWith('.onnx') || f.rfilename.endsWith('.safetensors') || f.rfilename === 'config.json'
+        );
+
+        if (relevantFiles.length === 0) {
+            return { success: false, error: 'No se encontraron archivos ONNX/safetensors compatibles' };
+        }
+
+        // Calculate total size for progress
+        const totalSize = relevantFiles.reduce((sum, f) => sum + (f.size ?? 0), 0);
+        let downloadedTotal = 0;
+
+        // Create model directory in HF cache format: models--org--model
+        const modelDirName = `models--${modelId.replace('/', '--')}`;
+        const modelDir = join(modelsDir, modelDirName);
+        const snapshotsDir = join(modelDir, 'snapshots');
+
+        // Generate a snapshot hash (use timestamp-based for simplicity, real HF uses commit hash)
+        const snapshotHash = `snap-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const snapshotDir = join(snapshotsDir, snapshotHash);
+
+        mkdirSync(snapshotDir, { recursive: true });
+
+        onProgress?.({ status: 'Descargando archivos...', progress: 0, downloaded: 0, total: totalSize });
+
+        // Download each file to temp, then atomic move
+        for (const file of relevantFiles) {
+            if (signal?.aborted) {
+                // Cleanup on abort
+                try { rmSync(modelDir, { recursive: true, force: true }); } catch { }
+                return { success: false, error: 'Descarga cancelada' };
+            }
+
+            const fileUrl = `https://huggingface.co/${encodeURIComponent(modelId)}/resolve/main/${encodeURIComponent(file.rfilename)}`;
+            const tempFile = join(snapshotDir, `.tmp-${file.rfilename}`);
+            const finalFile = join(snapshotDir, file.rfilename);
+
+            onProgress?.({
+                status: `Descargando ${file.rfilename}...`,
+                progress: totalSize > 0 ? Math.round((downloadedTotal / totalSize) * 100) : 0,
+                downloaded: downloadedTotal,
+                total: totalSize,
+            });
+
+            const fileRes = await fetch(fileUrl, {
+                signal: signal ?? AbortSignal.timeout(300000), // 5 min per file
+            });
+
+            if (!fileRes.ok) {
+                // Cleanup
+                try { rmSync(modelDir, { recursive: true, force: true }); } catch { }
+                return { success: false, error: `Error descargando ${file.rfilename}: ${fileRes.status}` };
+            }
+
+            // Stream download to temp file with progress
+            const writer = createWriteStream(tempFile);
+            let fileDownloaded = 0;
+
+            if (fileRes.body) {
+                for await (const chunk of fileRes.body as any) {
+                    if (signal?.aborted) {
+                        writer.destroy();
+                        try { rmSync(modelDir, { recursive: true, force: true }); } catch { }
+                        return { success: false, error: 'Descarga cancelada' };
+                    }
+                    writer.write(chunk);
+                    fileDownloaded += chunk.length;
+                    downloadedTotal += chunk.length;
+                    onProgress?.({
+                        status: `Descargando ${file.rfilename}...`,
+                        progress: totalSize > 0 ? Math.round((downloadedTotal / totalSize) * 100) : 0,
+                        downloaded: downloadedTotal,
+                        total: totalSize,
+                    });
+                }
+            }
+
+            writer.end();
+            await new Promise<void>((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+
+            // Validate SHA256 if provided by HF
+            if (file.lfs?.sha256) {
+                const actualHash = await computeSHA256(tempFile);
+                if (actualHash !== file.lfs.sha256) {
+                    try { rmSync(modelDir, { recursive: true, force: true }); } catch { }
+                    return { success: false, error: `Hash SHA256 no coincide para ${file.rfilename}` };
+                }
+            }
+
+            // Atomic rename: temp -> final
+            renameSync(tempFile, finalFile);
+        }
+
+        // Create refs/main pointing to snapshot (HF cache convention)
+        const refsDir = join(modelDir, 'refs');
+        mkdirSync(refsDir, { recursive: true });
+        writeFileSync(join(refsDir, 'main'), snapshotHash);
+
+        onProgress?.({ status: 'Descarga completada', progress: 100, downloaded: totalSize, total: totalSize });
+
+        return { success: true, localPath: modelDir, modelId };
+
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, error: `Error en descarga segura: ${msg}` };
+    }
+}
+
+/**
+ * Computes SHA256 hash of a file.
+ */
+async function computeSHA256(filePath: string): Promise<string> {
+    const { createReadStream } = await import('fs');
+    const { createHash } = await import('crypto');
+
+    return new Promise((resolve, reject) => {
+        const hash = createHash('sha256');
+        const stream = createReadStream(filePath);
+        stream.on('data', (chunk) => hash.update(chunk));
+        stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', reject);
+    });
+}
+
+/**
+ * Removes a model directory completely (for cleanup on failed downloads).
+ */
+export function removeModelDir(modelDir: string): void {
+    try {
+        rmSync(modelDir, { recursive: true, force: true });
+    } catch { /* ignore */ }
 }
