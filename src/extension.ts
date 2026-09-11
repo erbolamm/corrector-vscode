@@ -529,6 +529,9 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(IAPanelProvider.viewType, iaPanelProvider),
         vscode.commands.registerCommand('corrector.openIaLocalPanel', () => {
             vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
+        }),
+        vscode.commands.registerCommand('corrector.abrirIALocal', () => {
+            vscode.commands.executeCommand('corrector.iaLocalPanel.focus');
         })
     );
 

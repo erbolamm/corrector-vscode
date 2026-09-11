@@ -198,6 +198,31 @@
           "markdownDescription": "**Modelo de Ollama** a usar para corrección. Déjalo vacío para usar el primer modelo disponible.\n\nEjemplos: `llama3.2`, `qwen2.5:3b`, `gemma2:2b`"
         }
       }
+    },
+    "commands": [
+      {
+        "command": "corrector.abrirIALocal",
+        "title": "Corrector: Abrir IA local"
+      }
+    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "corrector.iaLocalPanel",
+          "title": "IA Local",
+          "icon": "icon.png"
+        }
+      ]
+    },
+    "views": {
+      "panel": [
+        {
+          "type": "webview",
+          "id": "corrector.iaLocalPanel",
+          "name": "IA Local",
+          "when": "corrector.iaLocal == true"
+        }
+      ]
     }
   },
   "scripts": {
