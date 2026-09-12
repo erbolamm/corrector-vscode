@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corrector Español — Ortografía offline para Copilot Chat en VS Code</title>
+  <meta name="description" content="Extensión de VS Code que corrige la ortografía en español dentro del chat de Copilot. 100% offline, más de 150 reglas, pensada para personas con dislexia. Panel opcional de IA local con descarga segura de modelos." />
+  <meta property="og:title" content="Corrector Español — Ortografía offline para Copilot Chat" />
+  <meta property="og:description" content="Corrección ortográfica en español, 100% offline, para el chat de GitHub Copilot en VS Code. Diseñada para personas con dislexia." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://erbolamm.github.io/corrector-vscode/" />
+  <meta property="og:image" content="https://raw.githubusercontent.com/erbolamm/corrector-vscode/main/icon.png" />
+
+  <!-- Tema guardado aplicado antes del primer pintado: evita el destello de modo claro -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('apliarte_theme');
+        document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+      } catch (e) { /* almacenamiento bloqueado: se queda en modo claro */ }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Abel&family=Fira+Sans+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Paleta Oficial Kit de Marca ApliArte ───────────────────── */
+    :root {
+      --primary: #005fa9;
+      --primary-dark: #00467b;
+      --accent: #5ecef5;
+      --white: #fdfdfd;
+      --charcoal: #303030;
+      --grey-light: #d9d9d9;
+      --grey-muted: #bebbb9;
+      --warm: #e8955e;
+
+      --bg: #fdfdfd;
+      --surface: #ffffff;
+      --surface-elevated: #f4f8fb;
+      --border: #d9d9d9;
+      --border-accent: rgba(0, 95, 169, 0.25);
+      --text: #303030;
+      --text-muted: #555555;
+      --code-bg: #f0f4f8;
+      --hero-grad: linear-gradient(135deg, #005fa9 0%, #00467b 100%);
+      --shadow: 0 4px 20px rgba(0, 70, 123, 0.08);
+      --badge-bg: rgba(0, 95, 169, 0.08);
+      --badge-text: #005fa9;
+    }
+
+    [data-theme="dark"] {
+      --bg: #303030;
+      --surface: #00467b;
+      --surface-elevated: #003660;
+      --border: rgba(94, 206, 245, 0.25);
+      --border-accent: rgba(94, 206, 245, 0.4);
+      --text: #fdfdfd;
+      --text-muted: #bebbb9;
+      --code-bg: #1f2226;
+      --hero-grad: linear-gradient(135deg, #5ecef5 0%, #8fd5fa 100%);
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+      --badge-bg: rgba(94, 206, 245, 0.15);
+      --badge-text: #5ecef5;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+
+    body {
+      font-family: 'Abel', system-ui, sans-serif;
+      font-size: 1.1rem;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    h1, h2, h3 { font-family: 'Fira Sans Condensed', sans-serif; letter-spacing: -0.01em; line-height: 1.2; }
+    .ui-text, .btn, .badge, th { font-family: 'Inter', 'DejaVu Sans', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+
+    a { color: var(--primary); text-decoration: none; }
+    [data-theme="dark"] a { color: var(--accent); }
+    a:hover, a:focus-visible { text-decoration: underline; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .container { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 0;
+    }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); }
+    .brand img { width: 32px; height: 32px; border-radius: 6px; }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--badge-bg); color: var(--badge-text);
+      font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    }
+    .theme-toggle {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+      width: 38px; height: 38px; cursor: pointer; font-size: 1.1rem;
+    }
+
+    section { padding: 56px 0; }
+    .section-title { font-size: 1.8rem; margin-bottom: 8px; }
+    .section-desc { color: var(--text-muted); margin-bottom: 28px; max-width: 640px; }
+
+    .hero { text-align: center; padding: 64px 0 40px; }
+    .hero h1 { font-size: 2.4rem; margin-bottom: 14px; }
+    .hero p.subtitle { font-size: 1.2rem; color: var(--text-muted); max-width: 620px; margin: 0 auto 24px; }
+    .hero-badges { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+    .cta-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
+      border-radius: 8px; font-weight: 600; font-size: 1rem; border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--hero-grad); color: #fff; text-decoration: none; box-shadow: 0 0 14px rgba(94, 206, 245, 0.35); }
+    [data-theme="dark"] .btn-primary { color: var(--charcoal); }
+    .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); text-decoration: none; }
+
+    .grid-6 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border-accent); border-radius: 12px;
+      padding: 20px; box-shadow: var(--shadow);
+    }
+    .card h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    .card p { color: var(--text-muted); font-size: 0.95rem; }
+
+    .steps { counter-reset: step; list-style: none; margin-bottom: 32px; }
+    .steps li {
+      counter-increment: step; position: relative; padding-left: 44px; margin-bottom: 16px;
+    }
+    .steps li::before {
+      content: counter(step); position: absolute; left: 0; top: 0;
+      width: 30px; height: 30px; border-radius: 50%; background: var(--hero-grad);
+      color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      font-family: 'Inter', sans-serif; font-size: 0.9rem;
+    }
+    details.faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+    details.faq-item summary { cursor: pointer; font-weight: 600; }
+
+    pre.cmd { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin-bottom: 12px; font-size: 0.9rem; }
+
+    .support-list, .roadmap-list { display: flex; flex-direction: column; gap: 12px; }
+    .support-item, .roadmap-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+    }
+    .plans-note { background: var(--surface-elevated); border: 1px solid var(--border-accent); border-radius: 10px; padding: 18px; color: var(--text-muted); }
+
+    details.author-note { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+    details.author-note summary { cursor: pointer; font-weight: 600; }
+
+    .share-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 20px 0; }
+    .share-badges img { height: 28px; }
+
+    footer { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 0.9rem; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <!-- ── 1. Header con Badges de Estado y Plataformas ─────────── -->
+  <header>
+    <div class="container header-inner">
+      <span class="brand">
+        <img src="../icon.png" alt="Corrector Español" />
+        Corrector Español
+      </span>
+      <div class="badges ui-text">
+        <span class="badge">🧩 VS Code</span>
+        <span class="badge">🧩 Cursor / Windsurf / Antigravity</span>
+        <span class="badge">🆓 Gratis</span>
+        <span class="badge">🚫 Sin publicidad</span>
+        <span class="badge">🔌 100% offline</span>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" aria-label="Cambiar a modo oscuro o claro" title="Cambiar tema claro/oscuro">🌙</button>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <!-- ── 2. Hero con One-Liner y Badge de Confianza ───────────── -->
+    <section class="hero">
+      <div class="container">
+        <h1>Corrige tu ortografía en español, sin salir de Copilot Chat</h1>
+        <p class="subtitle">
+          Más de 150 reglas de corrección, 100% offline, pensado especialmente para personas
+          con dislexia. Nada de tu texto sale de tu equipo salvo que tú lo decidas.
+        </p>
+        <div class="hero-badges">
+          <span class="badge">v2.0.1</span>
+          <span class="badge">🇪🇸 Motor exclusivo para español</span>
+          <span class="badge">🔒 Cero dependencias externas</span>
+        </div>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=apliarte.corrector-espanol" target="_blank" rel="noopener">Instalar en VS Marketplace</a>
+          <a class="btn btn-secondary" href="https://open-vsx.org/extension/apliarte/corrector-espanol" target="_blank" rel="noopener">Ver en Open VSX</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. Grid de 6 Beneficios Técnicos ──────────────────────── -->
+    <section id="features">
+      <div class="container">
+        <h2 class="section-title">Ingeniería real, sin humo</h2>
+        <p class="section-desc">Lo que hace el motor, comprobable en el código, no en el marketing.</p>
+        <div class="grid-6">
+          <div class="card">
+            <h3>🧠 +150 reglas de corrección</h3>
+            <p>Confusión b/v, h omitida, c/s/z, g/j, ll/y, tildes automáticas, n→m ante b/p, abreviaturas de chat y transposiciones.</p>
+          </div>
+          <div class="card">
+            <h3>🔌 100% offline por defecto</h3>
+            <p>El motor de corrección no depende de ningún servicio externo. El modo IA opcional es el único que reenvía texto a Copilot, y tú lo activas expresamente.</p>
+          </div>
+          <div class="card">
+            <h3>♿ Pensado para dislexia</h3>
+            <p>Fuente OpenDyslexic conmutable, explicaciones de cada corrección y un flujo pensado para no sobrecargar.</p>
+          </div>
+          <div class="card">
+            <h3>📥 Descarga segura de modelos</h3>
+            <p>El panel de IA local valida el identificador contra una lista permitida, descarga a un archivo temporal, comprueba integridad y solo entonces renombra al destino final.</p>
+          </div>
+          <div class="card">
+            <h3>🧮 Comprobación de memoria previa</h3>
+            <p>Antes de cargar un modelo local, se calcula si hay RAM suficiente. Si no la hay, avisa y no carga: nunca deja el equipo sin responder.</p>
+          </div>
+          <div class="card">
+            <h3>📖 Diccionario personal</h3>
+            <p>Añade tus propias correcciones y palabras a ignorar; se aplican antes que las reglas generales.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 4. Cómo funciona 1–6 + Mini FAQ ───────────────────────── -->
+    <section id="how-it-works">
+      <div class="container">
+        <h2 class="section-title">Cómo funciona</h2>
+        <ol class="steps">
+          <li>Instala la extensión desde VS Marketplace u Open VSX.</li>
+          <li>Abre el chat de Copilot (<code>Ctrl+Shift+I</code> / <code>Cmd+Shift+I</code>).</li>
+          <li>Escribe <code>@corrector</code> seguido de tu texto.</li>
+          <li>El corrector devuelve el texto corregido, con cada cambio explicado.</li>
+          <li>Si quieres, pulsa el botón para reenviarlo tal cual a Copilot.</li>
+          <li>Opcional: abre el panel de IA local para corrección offline con un modelo propio.</li>
+        </ol>
+
+        <details class="faq-item">
+          <summary>¿Corrige otros idiomas además del español?</summary>
+          <p>No. El motor de reglas es exclusivamente para español; otros idiomas no se detectan ni se corrigen.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿El modo IA consume mi plan de Copilot?</summary>
+          <p>Solo si activas <code>corrector.reenviarACopilot</code>. Por defecto está apagado y la corrección ortográfica es siempre gratuita y offline.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Se guarda o se envía mi texto a algún servidor?</summary>
+          <p>No, salvo que actives el modo IA (reenvío a Copilot) o cargues un modelo remoto. La corrección offline y el panel de IA local se quedan en tu máquina.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ── 5. Descargas con Comandos One-Liner ───────────────────── -->
+    <section id="download">
+      <div class="container">
+        <h2 class="section-title">Instalación</h2>
+        <p class="section-desc">Un solo comando si tienes el CLI de VS Code instalado, para macOS, Windows y Linux por igual.</p>
+        <pre class="cmd"><code>code --install-extension apliarte.corrector-espanol</code></pre>
+
+        <p class="section-desc">En Windsurf, Antigravity o Cursor (usan Open VSX, no el Marketplace de Microsoft):</p>
+        <pre class="cmd"><code># 1. Descarga el .vsix desde GitHub Releases
+# https://github.com/erbolamm/corrector-vscode/releases
+# 2. Paleta de comandos → "Extensions: Install from VSIX..."
+# 3. Selecciona el archivo descargado</code></pre>
+      </div>
+    </section>
+
+    <!-- ── 6. Apoyo Comunitario & Early Adopters ─────────────────── -->
+    <section id="support">
+      <div class="container">
+        <h2 class="section-title">Apoyo comunitario</h2>
+        <p class="section-desc">
+          Quien apoya hoy es un early adopter. Tendrá canje y descuentos futuros cuando salgan
+          planes de pago. Sin letra pequeña, de buena fe.
+        </p>
+        <div class="support-list">
+          <div class="support-item">💳 <a href="https://www.paypal.com/paypalme/erbolamm" target="_blank" rel="noopener">PayPal — paypal.me/erbolamm</a></div>
+          <div class="support-item">☕ <a href="https://ko-fi.com/C0C11TWR1K" target="_blank" rel="noopener">Ko-fi — ko-fi.com/C0C11TWR1K</a></div>
+          <div class="support-item">🎮 <a href="https://twitch.tv/apliarte" target="_blank" rel="noopener">Twitch — twitch.tv/apliarte</a></div>
+          <div class="support-item">💸 <a href="https://streamelements.com/apliarte/tip" target="_blank" rel="noopener">Tip directo — streamelements.com/apliarte/tip</a></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 7. Roadmap por Fases ──────────────────────────────────── -->
+    <section id="roadmap">
+      <div class="container">
+        <h2 class="section-title">Hoja de ruta real por fases</h2>
+        <p class="section-desc">Estado verificado contra el CHANGELOG del proyecto, no una promesa de marketing.</p>
+        <div class="roadmap-list">
+          <div class="roadmap-item">
+            <span>✅</span>
+            <div><strong>0.1 a 1.1 — Motor de corrección</strong><p style="color:var(--text-muted); font-size:0.9rem;">Más de 150 reglas, diccionario personal, estadísticas y fuente OpenDyslexic.</p></div>
+          </div>
+          <div class="roadmap-item">
+            <span>✅</span>
+            <div><strong>2.0.0 y 2.0.1 — Panel de IA local</strong><p style="color:var(--text-muted); font-size:0.9rem;">Búsqueda e instalación de modelos, descarga segura con validación de integridad, y preflight de memoria antes de cargar.</p></div>
+          </div>
+          <div class="roadmap-item">
+            <span>🟡</span>
+            <div><strong>Siguiente</strong><p style="color:var(--text-muted); font-size:0.9rem;">Terminar de conectar la descarga segura al panel con progreso visible (en curso).</p></div>
+          </div>
+        </div>
+        <p class="section-desc" style="margin-top:16px;">No hay hoja de ruta pública más allá de esto todavía.</p>
+      </div>
+    </section>
+
+    <!-- ── 8. Planes Futuros Transparentes ───────────────────────── -->
+    <section id="pricing">
+      <div class="container">
+        <h2 class="section-title">Planes y transparencia</h2>
+        <p class="plans-note">
+          ⚠️ Sin pagos por ahora. Hoy todo es gratis. Corrector Español es una herramienta libre
+          y no tiene ningún plan comercial activo. Si en el futuro apareciera algo más, se
+          anunciaría y explicaría antes de activarse.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── 9. Nota Personal del Autor en 6 Idiomas ───────────────── -->
+    <section id="author">
+      <div class="container">
+        <h2 class="section-title" style="text-align:center;">Nota personal del autor</h2>
+        <p class="section-desc" style="text-align:center; margin:0 auto 24px;">
+          Escrita en varios idiomas para que la pueda leer gente de todo el mundo. Esto no
+          significa que el corrector funcione en esos idiomas: el motor es exclusivo para español.
+        </p>
+
+        <details class="author-note" open>
+          <summary>🇪🇸 Español</summary>
+          <p>Soy un desarrollador indie, sin estudios, que ha aprendido todo por su cuenta a base de esfuerzo y persistencia. Tengo dislexia y necesitaba un corrector así para poder comunicarme mejor con las herramientas de IA. Cuando lo tuve funcionando, pensé: ¿para qué tenerlo solo para mí?</p>
+          <p>He decidido compartirlo con el mundo. Me ha costado mucho esfuerzo construir esto. Si te sirve y te ahorra tiempo, te agradecería mucho una ⭐ en GitHub y 5 estrellas en el Marketplace. Y si puedes, un pequeño donativo me ayudaría enormemente — soy padre de dos niños y cada euro cuenta para colegio, libros, comedor y alquiler.</p>
+          <p>Gracias de corazón por usar Corrector.</p>
+        </details>
+        <details class="author-note">
+          <summary>🇬🇧 English</summary>
+          <p>I'm an indie developer, self-taught, who learned everything from scratch through sheer effort and persistence. I have dyslexia and I needed a spell checker like this to communicate better with AI tools. When I got it working, I thought: why keep it just for myself?</p>
+          <p>So I decided to share it with the world. Building this took a lot of effort. If it helps you, I'd really appreciate a ⭐ on GitHub and 5 stars on the Marketplace. And if you can, a small donation would help me enormously — I'm a father of two kids and every euro counts for school, books, meals, and rent.</p>
+          <p>Thank you from the bottom of my heart for using Corrector.</p>
+        </details>
+        <details class="author-note">
+          <summary>🇧🇷 Português</summary>
+          <p>Sou um desenvolvedor indie, autodidata, que aprendeu tudo do zero com muito esforço e persistência. Tenho dislexia e precisava de um corretor assim para me comunicar melhor com ferramentas de IA. Quando consegui fazer funcionar, pensei: por que guardar só para mim?</p>
+          <p>Decidi compartilhar com o mundo. Construir isso me custou muito esforço. Se te ajudar, agradeceria muito uma ⭐ no GitHub e 5 estrelas no Marketplace. E se puder, uma pequena doação me ajudaria enormemente — sou pai de duas crianças e cada euro conta para escola, livros, alimentação e aluguel.</p>
+          <p>Obrigado de coração por usar o Corrector.</p>
+        </details>
+        <details class="author-note">
+          <summary>🇫🇷 Français</summary>
+          <p>Je suis un développeur indie, autodidacte, qui a tout appris par lui-même à force d'efforts et de persévérance. J'ai une dyslexie et j'avais besoin d'un correcteur comme celui-ci pour mieux communiquer avec les outils d'IA. Quand il a fonctionné, je me suis dit : pourquoi le garder pour moi seul ?</p>
+          <p>J'ai décidé de le partager avec le monde. Construire cet outil m'a demandé beaucoup d'efforts. S'il vous est utile, je vous serais très reconnaissant de laisser une ⭐ sur GitHub et 5 étoiles sur le Marketplace. Et si vous le pouvez, un petit don m'aiderait énormément — je suis père de deux enfants et chaque euro compte pour l'école, les livres, la cantine et le loyer.</p>
+          <p>Merci du fond du cœur d'utiliser Corrector.</p>
+        </details>
+        <details class="author-note">
+          <summary>🇩🇪 Deutsch</summary>
+          <p>Ich bin ein Indie-Entwickler, Autodidakt, der sich alles selbst beigebracht hat — durch Anstrengung und Ausdauer. Ich habe Legasthenie und brauchte einen Korrektor wie diesen, um besser mit KI-Tools kommunizieren zu können. Als er funktionierte, dachte ich: Warum ihn nur für mich behalten?</p>
+          <p>Ich habe mich entschlossen, ihn mit der Welt zu teilen. Dieses Tool zu bauen hat mich viel Mühe gekostet. Wenn es dir hilft, würde ich mich sehr über einen ⭐ auf GitHub und 5 Sterne im Marketplace freuen. Und wenn du kannst, würde mir eine kleine Spende enorm helfen — ich bin Vater von zwei Kindern und jeder Euro zählt für Schule, Bücher, Essen und Miete.</p>
+          <p>Danke von ganzem Herzen, dass du Corrector benutzt.</p>
+        </details>
+        <details class="author-note">
+          <summary>🇮🇹 Italiano</summary>
+          <p>Sono uno sviluppatore indie, autodidatta, che ha imparato tutto da zero con tanto impegno e perseveranza. Ho la dislessia e avevo bisogno di un correttore così per comunicare meglio con gli strumenti di IA. Quando ha funzionato, ho pensato: perché tenerlo solo per me?</p>
+          <p>Ho deciso di condividerlo con il mondo. Costruire questo mi è costato molto sforzo. Se ti è utile, ti sarei molto grato per una ⭐ su GitHub e 5 stelle sul Marketplace. E se puoi, una piccola donazione mi aiuterebbe enormemente — sono padre di due bambini e ogni euro conta per scuola, libri, mensa e affitto.</p>
+          <p>Grazie di cuore per usare Corrector.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ── 10. Botones de Compartir & Footer ─────────────────────── -->
+    <section id="share" style="text-align:center;">
+      <div class="container">
+        <h2 class="section-title">Comparte Corrector Español</h2>
+        <div class="share-badges">
+          <a href="https://twitter.com/intent/tweet?text=Corrector%20ortogr%C3%A1fico%20en%20espa%C3%B1ol%20para%20VS%20Code.%20100%25%20offline%2C%20dise%C3%B1ado%20para%20dislexia.&url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode&via=erbolamm" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Twitter-Compartir-1DA1F2?logo=twitter&logoColor=white" alt="Compartir en Twitter" /></a>
+          <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/LinkedIn-Compartir-0A66C2?logo=linkedin&logoColor=white" alt="Compartir en LinkedIn" /></a>
+          <a href="https://www.reddit.com/submit?url=https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode&title=Corrector%20Espa%C3%B1ol" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/Reddit-Compartir-FF4500?logo=reddit&logoColor=white" alt="Compartir en Reddit" /></a>
+          <a href="https://api.whatsapp.com/send?text=Corrector%20ortogr%C3%A1fico%20para%20VS%20Code%20%E2%80%94%20100%25%20offline.%20https%3A%2F%2Fgithub.com%2Ferbolamm%2Fcorrector-vscode" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/WhatsApp-Compartir-25D366?logo=whatsapp&logoColor=white" alt="Compartir en WhatsApp" /></a>
+        </div>
+        <p><a href="https://github.com/erbolamm/corrector-vscode" target="_blank" rel="noopener">GitHub</a> · <a href="https://discord.gg/SRwuZXpsZw" target="_blank" rel="noopener">Discord</a></p>
+      </div>
+    </section>
+
+    <footer>© 2026 ApliArte · MIT License · Hecho con 🧠 desde 2023</footer>
+  </main>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('theme-toggle');
+      function apply(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+      }
+      apply(document.documentElement.getAttribute('data-theme') || 'light');
+      btn.addEventListener('click', function () {
+        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        apply(next);
+        try { localStorage.setItem('apliarte_theme', next); } catch (e) { /* almacenamiento bloqueado */ }
+      });
+    })();
+  </script>
+</body>
+</html>
