@@ -5,6 +5,9 @@
 
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   estimateModelSize,
   formatBytes,
@@ -14,6 +17,7 @@ import {
   getCurrentModelId,
   isModelLoaded,
   descargarModelo,
+  scanInstalledModels,
 } from '../src/iaLocal.js';
 
 // ─── estimateModelSize ────────────────────────────────────────────────────────
@@ -182,5 +186,58 @@ describe('cargarModeloLocal export', () => {
   it('formatBytes está exportada', async () => {
     const mod = await import('../src/iaLocal.js');
     assert.ok(typeof mod.formatBytes === 'function');
+  });
+});
+
+// ─── scanInstalledModels ──────────────────────────────────────────────────────
+
+describe('scanInstalledModels', () => {
+  it('un directorio vacío devuelve []', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'corrector-scan-empty-'));
+    try {
+      const result = scanInstalledModels(dir);
+      assert.deepEqual(result, []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('un directorio inexistente devuelve []', () => {
+    const result = scanInstalledModels(join(tmpdir(), 'corrector-scan-no-existe-' + Date.now()));
+    assert.deepEqual(result, []);
+  });
+
+  it('un directorio con un modelo ONNX válido lo enumera con tamaño aproximado', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'corrector-scan-modelo-'));
+    try {
+      const snapshotDir = join(dir, 'models--onnx-community--Test-Model', 'snapshots', 'abc123');
+      mkdirSync(snapshotDir, { recursive: true });
+      writeFileSync(join(snapshotDir, 'model.onnx'), Buffer.alloc(1024, 1));
+      writeFileSync(join(snapshotDir, 'config.json'), '{}');
+
+      const result = scanInstalledModels(dir);
+
+      assert.equal(result.length, 1);
+      assert.equal(result[0].id, 'onnx-community/Test-Model');
+      assert.equal(result[0].localPath, join(dir, 'models--onnx-community--Test-Model'));
+      assert.ok(result[0].sizeBytes >= 1024, 'sizeBytes debe incluir al menos el .onnx escrito');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('no descarga ni carga nada: solo lee el sistema de ficheros', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'corrector-scan-sin-cargar-'));
+    try {
+      const snapshotDir = join(dir, 'models--onnx-community--Otro-Modelo', 'snapshots', 'hash1');
+      mkdirSync(snapshotDir, { recursive: true });
+      writeFileSync(join(snapshotDir, 'model.safetensors'), Buffer.alloc(2048, 2));
+
+      assert.equal(isModelLoaded(), false);
+      scanInstalledModels(dir);
+      assert.equal(isModelLoaded(), false, 'escanear no debe cargar ningún modelo');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

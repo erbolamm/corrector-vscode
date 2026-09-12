@@ -33,6 +33,7 @@ export interface RefinamientoIA {
 export interface InstalledModel {
 id: string;
 localPath: string;
+sizeBytes: number;
 }
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
@@ -536,6 +537,22 @@ const _SKIP_DIRS = new Set([
     'db', 'threads', 'node_modules', 'dist', '.git',
 ]);
 
+/** Suma el tamaño de todos los ficheros bajo `dir`, sin ejecutar ni cargar nada. */
+function _dirSizeBytes(dir: string, depth = 0): number {
+    if (depth > 6) { return 0; }
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return 0; }
+    let total = 0;
+    for (const e of entries) {
+        const full = join(dir, e);
+        try {
+            const st = statSync(full);
+            total += st.isDirectory() ? _dirSizeBytes(full, depth + 1) : st.size;
+        } catch { /* skip unreadable entry */ }
+    }
+    return total;
+}
+
 function _scanModelsRecursive(
     baseDir: string,
     currentDir: string,
@@ -571,7 +588,11 @@ function _scanModelsRecursive(
                 for (const hash of hashes) {
                     const snapFiles = readdirSync(join(snapDir, hash));
                     if (snapFiles.some((f) => f.endsWith('.onnx') || f.endsWith('.safetensors'))) {
-                        out.push({ id: parts.join('/'), localPath: currentDir });
+                        out.push({
+                            id: parts.join('/'),
+                            localPath: currentDir,
+                            sizeBytes: _dirSizeBytes(join(snapDir, hash)),
+                        });
                         return;
                     }
                 }
