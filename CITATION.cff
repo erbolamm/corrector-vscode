@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Corrector Español — Ortografía para Copilot Chat"
+version: "2.0.1"
+date-released: "2026-09-11"
+url: "https://github.com/erbolamm/corrector-vscode"
+repository-code: "https://github.com/erbolamm/corrector-vscode"
+license: MIT
+authors:
+  - family-names: Mateo
+    given-names: Javier
+    affiliation: "ApliArte"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+keywords:
+  - vscode
+  - vscode-extension
+  - spell-checker
+  - spanish
+  - copilot-chat
+abstract: >-
+  Corrector Español es una extensión de VS Code que revisa la ortografía de
+  respuestas de Copilot Chat y otros paneles, con corrección local opcional
+  mediante IA.
