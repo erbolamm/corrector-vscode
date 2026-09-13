@@ -17,10 +17,17 @@ import {
   IAConfig,
   InstalledModel,
   checkMemoryForModel,
-  estimateModelSize,
   getApliArteAiModelsDirFromConfig,
   validateSharedModelsDir,
+  downloadModelSecure,
+  SecureDownloadResult,
+  validateModelIdForDownload,
 } from './iaLocal';
+import {
+  filterCompatibleModels,
+  toSearchResultModel,
+  type HFModelSearchResult,
+} from './hfModelSearch';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -113,6 +120,10 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
           case 'searchHuggingFace':
             await this._searchHuggingFace(data.query as string);
+            break;
+
+          case 'downloadModel':
+            await this._downloadModel(data.modelId as string);
             break;
 
           case 'requestInstalledModels': {
@@ -369,8 +380,9 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     const q = encodeURIComponent(query.trim());
 
     try {
-      // Search for ONNX models compatible with transformers.js
-      const url = `https://huggingface.co/api/models?q=${q}&onnx=true&sort=downloads&direction=-1&limit=12`;
+      // Search for ONNX/Transformers.js compatible models
+      // Use tags filter for ONNX and sort by downloads
+      const url = `https://huggingface.co/api/models?q=${q}&filter=onnx&sort=downloads&direction=-1&limit=15`;
 
       const res = await fetch(url);
 
@@ -382,32 +394,93 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         return;
       }
 
-      const data = (await res.json()) as Array<Record<string, any>>;
+      const data = (await res.json()) as HFModelSearchResult[];
 
-      const results = data
-        .filter((m) => {
-          // Only show models that are likely compatible (small, instruction-tuned)
-          const id: string = (m.id || '') as string;
-          const downloads: number = (m.downloads || 0) as number;
-          // Filter: must be onnx, reasonable downloads, small models preferred
-          return (
-            (m.gguf || m.onnx || id.includes('onnx')) &&
-            downloads > 0
-          );
-        })
-        .slice(0, 10)
-        .map((m) => ({
-          id: m.id as string,
-          repoId: m.id as string,
-          downloads: m.downloads as number,
-          sha: 'onnx',
-          modelId: m.id as string,
-        }));
+      // Get installed models to determine status
+      const modelsDir = this._getModelsDir();
+      const installed: InstalledModel[] = scanInstalledModels(modelsDir);
+      const installedIds = new Set(installed.map(m => m.id));
+      const currentModelId = getCurrentModelId();
+      const isModelLoadedNow = isModelLoaded();
+
+      const results = filterCompatibleModels(data).map((m) =>
+        toSearchResultModel(m, {
+          installedIds,
+          currentModelId,
+          isLoaded: isModelLoadedNow,
+        }),
+      );
 
       this._post({ type: 'searchResults', results });
     } catch {
       // Network errors → silently return empty results
       this._post({ type: 'searchResults', results: [] });
+    }
+  }
+
+  // ── Download model ────────────────────────────────────────────────────────
+
+  private async _downloadModel(modelId: string): Promise<void> {
+    const modelsDir = this._getModelsDir();
+    if (!modelsDir) {
+      this._post({ type: 'error', message: 'Configura primero la carpeta de modelos (botón "Elegir carpeta…")' });
+      return;
+    }
+
+    // Validate model ID
+    const validation = validateModelIdForDownload(modelId);
+    if (!validation.allowed) {
+      this._post({ type: 'error', message: validation.reason ?? 'Modelo no permitido' });
+      return;
+    }
+
+    // Check memory before downloading
+    const memCheck = await checkMemoryForModel(modelId);
+    if (!memCheck.ok) {
+      this._post({
+        type: 'error',
+        message: memCheck.warning ?? 'Memoria insuficiente para descargar este modelo.',
+        canDisableIaLocal: true,
+      });
+      return;
+    }
+
+    this._post({
+      type: 'progress',
+      message: 'Descargando modelo…',
+      progress: 0,
+    });
+
+    try {
+      const result: SecureDownloadResult = await downloadModelSecure(
+        modelId,
+        modelsDir,
+        (info: { status: string; progress?: number; downloaded?: number; total?: number }) => {
+          const pct = info.progress != null ? Math.round(info.progress) : null;
+          this._post({
+            type: 'progress',
+            message: info.status,
+            progress: pct,
+          });
+        }
+      );
+
+      if (!result.success) {
+        this._post({ type: 'error', message: result.error ?? 'Error en la descarga' });
+        return;
+      }
+
+      // Refresh installed models list
+      const installed: InstalledModel[] = scanInstalledModels(modelsDir);
+      this._post({ type: 'installedModels', models: installed });
+      this._post({ type: 'downloadComplete', modelId });
+
+      // Also refresh search results if they're visible
+      // We could re-search, but for now just notify
+      this._post({ type: 'statusUpdate' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this._post({ type: 'error', message: 'Error descargando modelo: ' + msg });
     }
   }
 

@@ -378,6 +378,14 @@ body {
   color: var(--vscode-descriptionForeground);
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
+}
+
+.search-result-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
 }
 
 /* ── Reduced motion ───────────────────────────────────── */

@@ -75,6 +75,10 @@
     post({ command: 'searchHuggingFace', query });
   }
 
+  function downloadModel(modelId) {
+    post({ command: 'downloadModel', modelId });
+  }
+
   // ── UI updates ──────────────────────────────────────────────────────────
   function updateStatusBar() {
     const dot = $('status-dot');
@@ -469,7 +473,7 @@ function updateSharedNotice(isShared) {
       return;
     }
 
-    results.slice(0, 10).forEach(function (model) {
+    results.slice(0, 12).forEach(function (model) {
       const item = document.createElement('div');
       item.className = 'search-result-item';
 
@@ -482,28 +486,105 @@ function updateSharedNotice(isShared) {
 
       if (model.downloads) {
         const dl = document.createElement('span');
-        dl.textContent = formatDownloads(model.downloads);
+        dl.textContent = formatDownloads(model.downloads) + ' descargas';
         meta.appendChild(dl);
       }
-      if (model.sha) {
+      if (model.format) {
         const fmt = document.createElement('span');
-        fmt.textContent = 'ONNX';
+        fmt.textContent = model.format;
         meta.appendChild(fmt);
       }
+      if (model.architecture) {
+        const arch = document.createElement('span');
+        arch.textContent = model.architecture;
+        meta.appendChild(arch);
+      }
+      if (model.sizeFormatted) {
+        const sz = document.createElement('span');
+        sz.textContent = model.sizeFormatted;
+        meta.appendChild(sz);
+      }
 
-      const loadBtn = document.createElement('button');
-      loadBtn.className = 'btn btn-sm';
-      loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar';
-      loadBtn.addEventListener('click', function () {
-        if (!state.isDepsInstalled) {
-          installDeps();
+      // Status badge
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'badge';
+      if (model.status === 'loaded') {
+        statusBadge.className += ' badge-loaded';
+        statusBadge.textContent = 'En memoria';
+      } else if (model.status === 'downloaded') {
+        statusBadge.className += ' badge-not-installed';
+        statusBadge.textContent = 'En disco';
+      } else {
+        statusBadge.className += ' badge-not-installed';
+        statusBadge.textContent = 'Sin instalar';
+      }
+      meta.appendChild(statusBadge);
+
+      const actions = document.createElement('div');
+      actions.className = 'search-result-actions';
+
+      // Download button for compatible models that aren't loaded
+      if (model.compatible && model.status !== 'loaded') {
+        const isDownloaded = model.status === 'downloaded';
+
+        if (isDownloaded) {
+          // Already downloaded - show "Cargar" button
+          const loadBtn = document.createElement('button');
+          loadBtn.className = 'btn btn-sm btn-primary';
+          loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar deps';
+          loadBtn.disabled = state.isModelLoaded; // Can't load another while one is loaded
+          loadBtn.addEventListener('click', function () {
+            if (!state.isDepsInstalled) {
+              installDeps();
+            } else {
+              loadModel(model.modelId);
+            }
+          });
+          actions.appendChild(loadBtn);
+        } else {
+          // Not downloaded - show "Descargar" button with size warning
+          const downloadBtn = document.createElement('button');
+          downloadBtn.className = 'btn btn-sm';
+          downloadBtn.textContent = 'Descargar';
+
+          // Check if model is large (>1GB) and warn
+          const isLarge = model.sizeBytes && model.sizeBytes > 1024 * 1024 * 1024;
+
+          downloadBtn.addEventListener('click', function () {
+            if (!state.isDepsInstalled) {
+              // First need to install deps
+              installDeps();
+              // After deps installed, we could auto-download, but for now just show message
+              return;
+            }
+
+            if (isLarge) {
+              const confirmMsg = `Este modelo pesa ${model.sizeFormatted} y necesita ~${model.recommendedMemory} de RAM libre.\n¿Continuar con la descarga?`;
+              if (!confirm(confirmMsg)) return;
+            }
+
+            downloadModel(model.modelId);
+          });
+          actions.appendChild(downloadBtn);
         }
-        loadModel(model.id);
-      });
+      } else if (!model.compatible) {
+        // Not compatible - show badge
+        const badge = document.createElement('span');
+        badge.className = 'badge badge-not-installed';
+        badge.textContent = 'No compatible';
+        actions.appendChild(badge);
+      } else if (model.status === 'loaded') {
+        // Currently loaded - show unload button
+        const unloadBtn = document.createElement('button');
+        unloadBtn.className = 'btn btn-sm';
+        unloadBtn.textContent = 'Liberar';
+        unloadBtn.addEventListener('click', unloadModel);
+        actions.appendChild(unloadBtn);
+      }
 
       item.appendChild(name);
       item.appendChild(meta);
-      item.appendChild(loadBtn);
+      item.appendChild(actions);
       container.appendChild(item);
     });
 
@@ -511,9 +592,9 @@ function updateSharedNotice(isShared) {
   }
 
   function formatDownloads(n) {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M downloads';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K downloads';
-    return n + ' downloads';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return String(n);
   }
 
   // ── Message handler ──────────────────────────────────────────────────────
@@ -577,6 +658,11 @@ function updateSharedNotice(isShared) {
 
       case 'searchResults':
         renderSearchResults(msg.results || []);
+        break;
+
+      case 'downloadComplete':
+        // Re-request status to refresh installed models and search results
+        requestStatus();
         break;
 
       case 'warning':

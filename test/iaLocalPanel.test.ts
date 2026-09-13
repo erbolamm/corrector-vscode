@@ -16,7 +16,7 @@
  * antes que cualquier línea del test.
  */
 
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -32,6 +32,7 @@ interface FakeUri {
 }
 
 const configUpdates: Array<{ key: string; value: unknown }> = [];
+const vscodeConfig: Record<string, unknown> = {};
 
 const vscodeStub = {
   Uri: {
@@ -43,7 +44,8 @@ const vscodeStub = {
   },
   workspace: {
     getConfiguration: (_section?: string) => ({
-      get: <T>(_key: string, fallback?: T): T | undefined => fallback,
+      get: <T>(key: string, fallback?: T): T | undefined =>
+        key in vscodeConfig ? (vscodeConfig[key] as T) : fallback,
       update: (key: string, value: unknown): Promise<void> => {
         configUpdates.push({ key, value });
         return Promise.resolve();
@@ -106,8 +108,15 @@ const iaLocalStub = {
   instalarDepsTransformers: async () => undefined,
   cargarModeloLocal: async () => undefined,
   descargarModelo: async () => undefined,
-  downloadModelSecure: async () => undefined,
-  validateModelIdForDownload: () => ({ allowed: true }),
+  downloadModelSecure: async (modelId: string) => ({
+    success: true,
+    modelId,
+    localPath: '/tmp/modelo-de-prueba',
+  }),
+  validateModelIdForDownload: (modelId: string) =>
+    typeof modelId === 'string' && !modelId.includes('..')
+      ? { allowed: true }
+      : { allowed: false, reason: 'ID de modelo no válido' },
   removeModelDir: () => undefined,
   setDepsDirectory: () => undefined,
 };
@@ -176,6 +185,8 @@ interface HarnessOptions {
   /** Memoria libre simulada, en bytes. */
   memoriaLibre?: number;
   modeloActual?: string | null;
+  modelsDir?: string;
+  modelosInstalados?: unknown[];
 }
 
 function createHarness(opciones: HarnessOptions = {}): Harness {
@@ -185,8 +196,14 @@ function createHarness(opciones: HarnessOptions = {}): Harness {
   let assignedHtml = '';
 
   configUpdates.length = 0;
+  for (const key of Object.keys(vscodeConfig)) {
+    delete vscodeConfig[key];
+  }
+  if (opciones.modelsDir) {
+    vscodeConfig.modelsDir = opciones.modelsDir;
+  }
   iaLocal.memoriaLibre = opciones.memoriaLibre ?? 8 * GB;
-  iaLocal.modelosInstalados = [];
+  iaLocal.modelosInstalados = opciones.modelosInstalados ?? [];
   iaLocal.modeloActual = opciones.modeloActual ?? null;
 
   const webview = {
@@ -481,5 +498,114 @@ describe('iaLocalPanel · ciclo de vida', () => {
     const antes = h.posted.length;
     h.deliver({ command: 'webviewReady' });
     assert.equal(h.posted.length, antes, 'el panel sigue posteando después de dispose()');
+  });
+});
+
+// ─── Buscador de modelos compatibles ──────────────────────────────────────────
+
+describe('iaLocalPanel · buscador Hugging Face', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function mockFetch(payload: unknown, ok = true): string[] {
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      calls.push(String(input));
+      return {
+        ok,
+        json: async () => payload,
+      } as Response;
+    }) as typeof fetch;
+    return calls;
+  }
+
+  it('no llama a la red si la consulta tiene menos de 3 caracteres', async () => {
+    const calls = mockFetch([]);
+    const h = createHarness();
+    h.deliver({ command: 'searchHuggingFace', query: 'ab' });
+    await tick();
+    assert.deepEqual(calls, []);
+    const msg = h.posted.find((m) => m.type === 'searchResults');
+    assert.deepEqual(msg?.results, []);
+  });
+
+  it('pide modelos ONNX y descarta GGUF puro', async () => {
+    const calls = mockFetch([
+      { id: 'onnx-community/ok', downloads: 80, tags: ['onnx'] },
+      { id: 'someone/gguf-only', downloads: 900, tags: ['gguf'] },
+      {
+        id: 'onnx-community/both',
+        downloads: 40,
+        tags: ['onnx', 'gguf'],
+        siblings: [{ rfilename: 'model.onnx', size: 10 }],
+      },
+    ]);
+    const h = createHarness();
+    h.deliver({ command: 'searchHuggingFace', query: 'qwen' });
+    await tick();
+
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /filter=onnx/);
+    const msg = h.posted.find((m) => m.type === 'searchResults');
+    const ids = (msg?.results as Array<{ id: string }> | undefined)?.map((r) => r.id);
+    assert.deepEqual(ids, ['onnx-community/ok', 'onnx-community/both']);
+  });
+
+  it('marca en disco un modelo ya instalado', async () => {
+    mockFetch([
+      { id: 'onnx-community/ok', downloads: 80, tags: ['onnx'] },
+    ]);
+    const h = createHarness({
+      modelosInstalados: [{ id: 'onnx-community/ok', localPath: '/tmp/ok', sizeBytes: 1 }],
+    });
+    h.deliver({ command: 'searchHuggingFace', query: 'qwen' });
+    await tick();
+    const msg = h.posted.find((m) => m.type === 'searchResults');
+    const first = (msg?.results as Array<{ status: string }> | undefined)?.[0];
+    assert.equal(first?.status, 'downloaded');
+  });
+
+  it('si Hugging Face falla, devuelve lista vacía y no lanza', async () => {
+    mockFetch([], false);
+    const h = createHarness();
+    h.deliver({ command: 'searchHuggingFace', query: 'qwen' });
+    await tick();
+    const msg = h.posted.find((m) => m.type === 'searchResults');
+    assert.deepEqual(msg?.results, []);
+  });
+});
+
+describe('iaLocalPanel · botón de descarga del buscador', () => {
+  it('sin carpeta de modelos avisa y no descarga', async () => {
+    const h = createHarness();
+    h.deliver({ command: 'downloadModel', modelId: 'onnx-community/Qwen2.5-0.5B-Instruct' });
+    await tick();
+    const error = h.posted.find((m) => m.type === 'error');
+    assert.match(String(error?.message), /Configura primero la carpeta/);
+    assert.equal(h.types().includes('downloadComplete'), false);
+  });
+
+  it('con carpeta y id permitido completa la descarga simulada', async () => {
+    const h = conDeps({ modelsDir: '/tmp/modelos-corrector' });
+    h.deliver({ command: 'downloadModel', modelId: 'onnx-community/Qwen2.5-0.5B-Instruct' });
+    await tick();
+    assert.ok(h.types().includes('downloadComplete'), `llegaron: ${h.types().join(', ')}`);
+  });
+});
+
+describe('iaLocalPanel · pintura del buscador en media/iaLocal.js', () => {
+  it('pinta nombre y metadatos con textContent y avisa si el modelo es grande', () => {
+    const script = leerMedia('iaLocal.js');
+    assert.ok(script.includes('name.textContent = model.id'));
+    assert.ok(script.includes("textContent = 'Descargar'"));
+    assert.ok(script.includes('¿Continuar con la descarga?'));
+    assert.equal(
+      script.includes("'M downloads'"),
+      false,
+      'no mezclar "downloads" inglés con "descargas"',
+    );
   });
 });
