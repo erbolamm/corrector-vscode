@@ -43,8 +43,21 @@
   function hide(el) { el.classList.remove('visible'); }
 
   // ── API to VS Code ──────────────────────────────────────────────────────
+  let vscode = null;
+  try {
+    if (typeof acquireVsCodeApi === 'function') {
+      vscode = acquireVsCodeApi();
+    }
+  } catch (_e) {
+    // Fallback when executed outside webview
+  }
+
   function post(data) {
-    window.parent.postMessage({ type: 'vscodeApi', ...data }, '*');
+    if (vscode) {
+      vscode.postMessage(data);
+    } else if (window.parent && window.parent !== window) {
+      window.parent.postMessage(data, '*');
+    }
   }
 
   function requestStatus() {
@@ -600,7 +613,7 @@ function updateSharedNotice(isShared) {
   // ── Message handler ──────────────────────────────────────────────────────
   window.addEventListener('message', function (event) {
     const msg = event.data;
-    if (!msg || msg.source !== 'vscodeApi') return;
+    if (!msg) return;
 
     hideError();
 
@@ -749,6 +762,22 @@ function updateSharedNotice(isShared) {
     });
   }
 
+  // Wire button listeners
+  var btnFolder = $('btn-choose-folder');
+  if (btnFolder) {
+    btnFolder.addEventListener('click', chooseModelsDir);
+  }
+
+  var btnSearch = $('btn-search');
+  if (btnSearch) {
+    btnSearch.addEventListener('click', function () {
+      var query = $('search-input').value.trim();
+      if (query.length >= 3) {
+        searchModels(query);
+      }
+    });
+  }
+
   // Search input handler (debounced)
   let searchTimer;
   $('search-input').addEventListener('input', function () {
@@ -774,26 +803,15 @@ function updateSharedNotice(isShared) {
     }
   });
 
-  // Listen for webview ready
-  window.addEventListener('load', function () {
-    // Signal ready to provider
+  // Start & signal ready
+  function start() {
+    init();
     post({ command: 'webviewReady' });
-  });
+  }
 
-  // The provider sends 'webviewReady' ack which triggers actual init
-  // Fallback: request status after a short delay
-  setTimeout(function () {
-    if (state.recommendedModels.length === 0) {
-      init();
-    }
-  }, 300);
-
-  // Override the init to be triggered by provider
-  window.addEventListener('message', function handler(event) {
-    const msg = event.data;
-    if (msg && msg.source === 'vscodeApi' && msg.type === 'webviewReady') {
-      window.removeEventListener('message', handler);
-      init();
-    }
-  });
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
 })();

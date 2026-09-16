@@ -32,7 +32,9 @@
     "copilot",
     "chat"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:corrector.iaLocalPanel"
+  ],
   "main": "./out/extension.js",
   "icon": "icon-new.png",
   "contributes": {
@@ -207,14 +209,14 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "corrector.iaLocalPanel",
+          "id": "corrector",
           "title": "Corrector",
           "icon": "icon.png"
         }
       ]
     },
     "views": {
-      "activitybar": [
+      "corrector": [
         {
           "type": "webview",
           "id": "corrector.iaLocalPanel",
