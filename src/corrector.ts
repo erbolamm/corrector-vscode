@@ -66,9 +66,15 @@ const REGLAS_FONETICAS: ReglaPatron[] = [
 const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> = new Map([
     // ── H omitida / añadida ──
     ['ola', { corregido: 'hola', regla: 'h omitida: hola' }],
+    ['olah', { corregido: 'hola', regla: 'h al final: hola' }],
+    ['jola', { corregido: 'hola', regla: 'j→h: hola' }],
     ['asta', { corregido: 'hasta', regla: 'h omitida: hasta' }],
+    ['astah', { corregido: 'hasta', regla: 'h al final: hasta' }],
     ['acer', { corregido: 'hacer', regla: 'h omitida: hacer' }],
     ['aser', { corregido: 'hacer', regla: 'h omitida + c→s: hacer' }],
+    ['ace', { corregido: 'hace', regla: 'h omitida: hace' }],
+    ['ase', { corregido: 'hace', regla: 'h omitida + s→c: hace' }],
+    ['jace', { corregido: 'hace', regla: 'j→h: hace' }],
     ['echo', { corregido: 'hecho', regla: 'h omitida: hecho' }],
     ['emos', { corregido: 'hemos', regla: 'h omitida: hemos' }],
     ['ablar', { corregido: 'hablar', regla: 'h omitida: hablar' }],

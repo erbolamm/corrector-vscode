@@ -167,6 +167,22 @@ body {
   border-color: var(--vscode-focusBorder);
 }
 
+.corrector-action-row {
+  display: flex;
+  width: 100%;
+}
+
+.btn-block {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .action-buttons-row {
   display: flex;
   gap: 6px;
@@ -182,6 +198,49 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
+}
+
+.result-actions-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.result-actions-row .btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.github-suggest-wrap {
+  margin-top: 4px;
+  text-align: center;
+  border-top: 1px dashed var(--vscode-panel-border);
+  padding-top: 6px;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: var(--vscode-textLink-foreground, #38bdf8);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  outline: none;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+  display: inline-block;
+}
+
+.btn-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+  color: var(--vscode-textLink-activeForeground, #7dd3fc);
 }
 
 #resultado-wrap {

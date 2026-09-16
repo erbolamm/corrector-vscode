@@ -72,6 +72,12 @@ describe('Transposiciones de letras', () => {
     it('peudo → puedo', () => {
         assert.equal(corregir('peudo'), 'puedo');
     });
+    it('olah → hola (h al final)', () => {
+        assert.equal(corregir('olah'), 'hola');
+    });
+    it('jace → hace (j por h)', () => {
+        assert.equal(corregir('jace'), 'hace');
+    });
 });
 
 // ─── SUITE: B / V ────────────────────────────────────────────────────────────

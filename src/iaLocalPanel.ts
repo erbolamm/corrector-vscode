@@ -270,6 +270,18 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             break;
           }
 
+          case 'suggestGithub': {
+            const orig = data.original ? encodeURIComponent(data.original as string) : '';
+            const corr = data.corrected ? encodeURIComponent(data.corrected as string) : '';
+            const title = encodeURIComponent(`Sugerencia de diccionario: "${data.original || ''}"`);
+            const body = encodeURIComponent(
+              `### Sugerencia de corrección para el diccionario\n\n- **Texto original:** \`${data.original || ''}\`\n- **Resultado del corrector:** \`${data.corrected || ''}\`\n- **Corrección esperada:** \n\n*Enviado voluntariamente desde la extensión Corrector.*`
+            );
+            const url = `https://github.com/erbolamm/corrector-vscode/issues/new?title=${title}&body=${body}`;
+            await vscode.env.openExternal(vscode.Uri.parse(url));
+            break;
+          }
+
           case 'disableIaLocal':
             await this._disableIaLocal();
             break;
@@ -727,15 +739,9 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         ></textarea>
       </div>
 
-      <div class="action-buttons-row">
-        <button id="btn-corregir" class="btn btn-primary" title="Corregir ortografía y gramática">
+      <div class="corrector-action-row">
+        <button id="btn-corregir" class="btn btn-primary btn-block" title="Corregir ortografía y gramática">
           ✏️ Corregir
-        </button>
-        <button id="btn-enviar-chat" class="btn" title="Enviar texto corregido directamente al Chat de Antigravity / Copilot" disabled>
-          🚀 Enviar al Chat
-        </button>
-        <button id="btn-copiar-resultado" class="btn" title="Copiar texto al portapapeles" disabled>
-          📋 Copiar
         </button>
       </div>
 
@@ -749,6 +755,23 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
         <div id="box-texto-corregido" class="result-box" contenteditable="true" title="Texto corregido (puedes editarlo si quieres)"></div>
 
         <div id="lista-cambios" class="cambios-wrap hidden"></div>
+
+        <!-- Botones de acción SOBRE el resultado corregido -->
+        <div class="result-actions-row">
+          <button id="btn-enviar-chat" class="btn btn-primary" title="Enviar texto corregido directamente al Chat de Antigravity / Copilot" disabled>
+            🚀 Enviar al Chat
+          </button>
+          <button id="btn-copiar-resultado" class="btn" title="Copiar texto al portapapeles" disabled>
+            📋 Copiar
+          </button>
+        </div>
+
+        <!-- Sugerencia voluntaria en GitHub -->
+        <div class="github-suggest-wrap">
+          <button id="btn-suggest-github" class="btn-link" title="Sugerir corrección en GitHub para mejorar el diccionario">
+            💡 ¿Falta una palabra o es incorrecta? Sugerir en GitHub
+          </button>
+        </div>
       </div>
     </section>
 

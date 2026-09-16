@@ -791,6 +791,19 @@ function updateSharedNotice(isShared) {
       });
     }
 
+    const btnSuggestGithub = $('btn-suggest-github');
+    if (btnSuggestGithub) {
+      btnSuggestGithub.addEventListener('click', function () {
+        const orig = (input && input.value.trim()) || '';
+        const corr = (boxResultado && boxResultado.textContent.trim()) || state.currentCorrectedText || '';
+        post({
+          command: 'suggestGithub',
+          original: orig,
+          corrected: corr,
+        });
+      });
+    }
+
     function ejecutarCorreccion() {
       const text = input.value.trim();
       if (!text) return;
