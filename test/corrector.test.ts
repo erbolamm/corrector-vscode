@@ -377,4 +377,46 @@ describe('Teclado adyacente y similitud fonética (Español sin IA)', () => {
     });
 });
 
+// ─── SUITE: Vocabulario de Programadores y Términos Técnicos ─────────────────
+
+describe('Vocabulario de Programadores y Términos Técnicos', () => {
+    it('bariable → variable', () => {
+        assert.equal(corregir('bariable'), 'variable');
+    });
+    it('bariables → variables', () => {
+        assert.equal(corregir('bariables'), 'variables');
+    });
+    it('funsion → función', () => {
+        assert.equal(corregir('funsion'), 'función');
+    });
+    it('funsiones → funciones', () => {
+        assert.equal(corregir('funsiones'), 'funciones');
+    });
+    it('metodo → método', () => {
+        assert.equal(corregir('metodo'), 'método');
+    });
+    it('parametro → parámetro', () => {
+        assert.equal(corregir('parametro'), 'parámetro');
+    });
+    it('interfas → interfaz', () => {
+        assert.equal(corregir('interfas'), 'interfaz');
+    });
+    it('conponente → componente', () => {
+        assert.equal(corregir('conponente'), 'componente');
+    });
+    it('asincrono → asíncrono', () => {
+        assert.equal(corregir('asincrono'), 'asíncrono');
+    });
+    it('exepcion → excepción', () => {
+        assert.equal(corregir('exepcion'), 'excepción');
+    });
+    it('libreria → librería', () => {
+        assert.equal(corregir('libreria'), 'librería');
+    });
+    it('algoridmo → algoritmo', () => {
+        assert.equal(corregir('algoridmo'), 'algoritmo');
+    });
+});
+
+
 
