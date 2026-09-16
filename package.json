@@ -230,7 +230,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
-    "package": "vsce package",
+    "package": "node -e \"const p=require('./package.json'); require('child_process').execSync('vsce package -o entregas/' + p.publisher + '-' + p.name + '-' + p.version + '.vsix', {stdio:'inherit'})\"",
     "test": "tsc -p tsconfig.test.json && node --test 'out-test/test/**/*.js'"
   },
   "devDependencies": {
