@@ -270,6 +270,14 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             break;
           }
 
+          case 'openExternal': {
+            const url = data.url as string;
+            if (url) {
+              await vscode.env.openExternal(vscode.Uri.parse(url));
+            }
+            break;
+          }
+
           case 'suggestGithub': {
             const orig = (data.original as string) || '';
             const corr = (data.corrected as string) || '';
@@ -789,6 +797,31 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
           </svg>
           <span>Sugerir palabra o reporte en GitHub</span>
         </button>
+      </div>
+
+      <!-- Tarjeta de Apoyo al Proyecto -->
+      <div class="project-support-card">
+        <div class="project-support-header">
+          <span class="project-support-icon">❤️</span>
+          <span class="project-support-title">Apoyar el proyecto</span>
+        </div>
+        <p class="project-support-desc">
+          Corrector es gratuito y de código abierto. Si te ahorra tiempo, un café ayuda a seguir desarrollándolo.
+        </p>
+        <div class="support-btns">
+          <button class="support-btn support-btn-paypal" data-url="https://paypal.me/erbolamm" title="Donar vía PayPal">
+            <svg width="13" height="15" viewBox="0 0 24 28" fill="currentColor"><path d="M19.5 3.5C18.2 2.2 16.3 1.5 14 1.5H6.5c-.8 0-1.5.6-1.6 1.4L2 21.4c-.1.6.4 1.1 1 1.1h4.5l1.1-7.1v.4c.1-.8.8-1.4 1.6-1.4h3.3c6.6 0 11.7-2.7 13.2-10.4.1-.3.1-.6.1-.9-.4-2.3-1.5-4-2.8-5.1.2.1.3.2.5.3z"/></svg>
+            PayPal
+          </button>
+          <button class="support-btn support-btn-kofi" data-url="https://ko-fi.com/C0C11TWR1K" title="Invitar a un café en Ko-fi">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 2.739.723 4.311zm6.173.478c-.928.116-1.682-.058-1.682-.058V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z"/></svg>
+            Ko-fi
+          </button>
+          <button class="support-btn support-btn-twitch" data-url="https://streamelements.com/apliarte/tip" title="Donar vía Twitch">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
+            Twitch Tip
+          </button>
+        </div>
       </div>
     </section>
 

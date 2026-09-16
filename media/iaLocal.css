@@ -283,6 +283,82 @@ body::-webkit-scrollbar-thumb:hover {
   flex-shrink: 0;
 }
 
+/* ── Project Support Card ─────────────────────────────── */
+.project-support-card {
+  border: 1px solid var(--vscode-panel-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(255, 255, 255, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.project-support-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.project-support-icon { font-size: 13px; }
+.project-support-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--vscode-foreground);
+}
+.project-support-desc {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.35;
+  margin: 0;
+}
+.project-support-card .support-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 2px;
+}
+.project-support-card .support-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: filter .15s, transform .1s;
+  letter-spacing: .2px;
+  flex: 1 1 calc(50% - 3px);
+}
+.project-support-card .support-btn:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+.project-support-card .support-btn:active {
+  transform: translateY(0);
+}
+.project-support-card .support-btn svg {
+  flex-shrink: 0;
+}
+.project-support-card .support-btn-paypal {
+  background: #003087;
+  color: #fff;
+}
+.project-support-card .support-btn-kofi {
+  background: #FF5E5B;
+  color: #fff;
+}
+.project-support-card .support-btn-twitch {
+  background: #9146FF;
+  color: #fff;
+  flex: 1 1 100%;
+}
+
 #resultado-wrap {
   margin-top: 4px;
   padding: 8px 10px;

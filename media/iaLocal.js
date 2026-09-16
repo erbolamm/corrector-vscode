@@ -939,9 +939,22 @@ function updateSharedNotice(isShared) {
   function init() {
     initEcosystemNav();
     initDirectCorrector();
+    initSupportBtns();
     requestStatus();
     requestRecommendedModels();
     initThemeToggle();
+  }
+
+  function initSupportBtns() {
+    const btns = document.querySelectorAll('.support-btn');
+    btns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const url = this.getAttribute('data-url');
+        if (url) {
+          post({ command: 'openExternal', url: url });
+        }
+      });
+    });
   }
 
   // ── Theme toggle ─────────────────────────────────────────────────────────
