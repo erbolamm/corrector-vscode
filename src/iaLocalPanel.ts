@@ -22,7 +22,9 @@ import {
   downloadModelSecure,
   SecureDownloadResult,
   validateModelIdForDownload,
+  refinarConIA,
 } from './iaLocal';
+import { MotorCorrector } from './corrector';
 import {
   filterCompatibleModels,
   toSearchResultModel,
@@ -59,10 +61,16 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private readonly _extensionUri: vscode.Uri;
   private readonly _globalState: vscode.Memento;
+  private readonly _getMotor?: () => MotorCorrector;
 
-  constructor(extensionUri: vscode.Uri, globalState: vscode.Memento) {
+  constructor(
+    extensionUri: vscode.Uri,
+    globalState: vscode.Memento,
+    getMotor?: () => MotorCorrector,
+  ) {
     this._extensionUri = extensionUri;
     this._globalState = globalState;
+    this._getMotor = getMotor;
   }
 
   dispose(): void {
@@ -93,6 +101,90 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             this._sendStatus();
             this._post({ type: 'recommendedModels', models: RECOMMENDED_MODELS });
             break;
+
+          case 'corregirTexto': {
+            const texto = typeof data.text === 'string' ? data.text : '';
+            if (!texto.trim()) {
+              this._post({
+                type: 'resultadoCorreccion',
+                textoOriginal: '',
+                textoCorregido: '',
+                correcciones: [],
+                totalCorrecciones: 0,
+                idioma: 'es',
+                refinadoIa: null,
+              });
+              break;
+            }
+
+            const motor = this._getMotor ? this._getMotor() : undefined;
+            const res = motor ? motor.corregir(texto) : {
+              textoOriginal: texto,
+              textoCorregido: texto,
+              correcciones: [],
+              totalCorrecciones: 0,
+              idioma: 'es' as const,
+            };
+
+            let refinadoIa: string | null = null;
+            if (data.usarIa || isModelLoaded()) {
+              const cfg = vscode.workspace.getConfiguration('corrector');
+              const rawBackend = cfg.get<string>('iaBackend', 'auto');
+              let backend: IAConfig['backend'] = 'none';
+              if (isModelLoaded()) {
+                backend = 'transformers';
+              } else if (rawBackend === 'ollama' || rawBackend === 'lmstudio' || rawBackend === 'transformers') {
+                backend = rawBackend;
+              }
+
+              const iaConfig: IAConfig = {
+                backend,
+                ollamaEndpoint: cfg.get<string>('ollamaEndpoint', 'http://localhost:11434'),
+                lmstudioEndpoint: cfg.get<string>('lmstudioEndpoint', 'http://localhost:1234/v1'),
+                ollamaModel: cfg.get<string>('ollamaModel', ''),
+              };
+              try {
+                const base = res.totalCorrecciones > 0 ? res.textoCorregido : texto;
+                const ref = await refinarConIA(base, iaConfig);
+                if (ref && ref.textoRefinado && ref.textoRefinado !== base) {
+                  refinadoIa = ref.textoRefinado;
+                }
+              } catch {
+                // Silently ignore IA failure
+              }
+            }
+
+            this._post({
+              type: 'resultadoCorreccion',
+              textoOriginal: res.textoOriginal,
+              textoCorregido: res.textoCorregido,
+              correcciones: res.correcciones,
+              totalCorrecciones: res.totalCorrecciones,
+              idioma: res.idioma,
+              refinadoIa,
+            });
+            break;
+          }
+
+          case 'enviarAChat': {
+            const texto = typeof data.text === 'string' ? data.text : '';
+            if (texto.trim()) {
+              await vscode.commands.executeCommand('workbench.action.chat.open', {
+                query: texto,
+                isPartialQuery: false,
+              });
+            }
+            break;
+          }
+
+          case 'copiarTexto': {
+            const texto = typeof data.text === 'string' ? data.text : '';
+            if (texto) {
+              await vscode.env.clipboard.writeText(texto);
+              this._post({ type: 'textoCopiado' });
+            }
+            break;
+          }
 
           case 'requestStatus':
             this._sendStatus();
@@ -530,7 +622,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' ${webview.cspSource ?? ''}; script-src 'self' ${webview.cspSource ?? ''}; style-src 'self' ${webview.cspSource ?? ''} 'unsafe-inline'; connect-src https://huggingface.co;">
   <link rel="stylesheet" href="${cssUri}">
-  <title>IA Local — Corrector</title>
+  <title>Corrector e IA Local</title>
 </head>
 <body>
   <!-- Theme toggle -->
@@ -539,84 +631,138 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     <svg id="icon-moon" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
   </div>
 
-  <!-- Status bar -->
-  <div id="status-bar">
-    <div id="status-dot" class="no-deps"></div>
-    <div id="status-label">IA local: sin instalar</div>
-    <div id="current-model"></div>
-  </div>
-
   <!-- Content -->
   <div id="content">
-    <!-- Recommended models -->
-    <section>
-      <div class="section-header">Modelos recomendados</div>
-      <p style="font-size:10px;color:var(--vscode-descriptionForeground);margin-bottom:6px;">
-        Para corrección ortográfica no hace falta un modelo grande.
-        Qwen 2.5 0.5B es suficiente y usa poca memoria.
-      </p>
-      <div id="recommended-models"></div>
-    </section>
-
-    <!-- Installed models -->
-    <section>
-      <div class="section-header" id="installed-section-header" style="display:none;">Modelos en disco</div>
-      <p style="font-size:10px;color:var(--vscode-descriptionForeground);margin-bottom:6px;" id="installed-description" hidden>
-        Modelos ya descargados que puedes cargar directamente.
-      </p>
-      <div id="installed-models"></div>
-    </section>
-
-    <!-- Progress -->
-    <div id="progress-section">
-      <div id="progress-label">Procesando…</div>
-      <div id="progress-track">
-        <div id="progress-fill"></div>
-      </div>
-    </div>
-
-    <!-- Error -->
-    <div id="error-section"></div>
-
-    <!-- Folder -->
-    <section>
-      <div class="section-header">Carpeta de modelos</div>
-      <div id="folder-section">
-        <div id="folder-path" class="empty">Sin carpeta configurada</div>
-        <div id="folder-actions">
-          <button class="btn" id="btn-choose-folder">Elegir carpeta…</button>
-          <div id="shared-notice" class="hidden">📁 Carpeta compartida con ApliArte AI</div>
+    <!-- SECCIÓN 1: CORRECTOR RÁPIDO DIRECTO -->
+    <section id="corrector-section" class="corrector-card">
+      <div class="section-header-row">
+        <div class="section-title-wrap">
+          <span class="section-icon">✍️</span>
+          <span class="section-header">Corrector Rápido</span>
         </div>
+        <span id="char-counter" class="subtle-count">0 caracteres</span>
       </div>
 
-      <!-- Shared folder with ApliArte AI -->
-      <div id="shared-folder-section" class="hidden">
-        <div class="section-header">📁 Carpeta detectada en ApliArte AI</div>
-        <div id="shared-folder-info">
-          <div id="shared-folder-path" class="path"></div>
-          <div id="shared-folder-status"></div>
-          <div id="shared-folder-actions"></div>
+      <div class="input-wrap">
+        <textarea
+          id="editor-input"
+          placeholder="Escribe o pega aquí tu texto o prompt para corregir..."
+          rows="4"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <div class="action-buttons-row">
+        <button id="btn-corregir" class="btn btn-primary" title="Corregir ortografía y gramática">
+          ✏️ Corregir
+        </button>
+        <button id="btn-enviar-chat" class="btn" title="Enviar texto corregido directamente al Chat de Antigravity / Copilot" disabled>
+          🚀 Enviar al Chat
+        </button>
+        <button id="btn-copiar-resultado" class="btn" title="Copiar texto al portapapeles" disabled>
+          📋 Copiar
+        </button>
+      </div>
+
+      <!-- Contenedor de resultado de corrección -->
+      <div id="resultado-wrap" class="hidden">
+        <div class="resultado-header-row">
+          <span id="badge-resultado" class="badge"></span>
+          <span id="label-idioma" class="subtle-count"></span>
         </div>
+
+        <div id="box-texto-corregido" class="result-box" contenteditable="true" title="Texto corregido (puedes editarlo si quieres)"></div>
+
+        <div id="lista-cambios" class="cambios-wrap hidden"></div>
       </div>
     </section>
 
-    <!-- Search -->
-    <section>
-      <div class="section-header">Buscar modelos</div>
-      <div id="search-section">
-        <div id="search-input-row">
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Buscar en HuggingFace (3+ caracteres)…"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button class="btn" id="btn-search">Buscar</button>
+    <!-- SECCIÓN 2: IA LOCAL Y MODELOS (PLEGABLE) -->
+    <details id="details-ia-local" class="accordion-section">
+      <summary class="accordion-summary">
+        <span class="accordion-icon">🧠</span>
+        <span class="accordion-title">Modelos e IA Local (Opcional)</span>
+      </summary>
+
+      <div class="accordion-body">
+        <!-- Status bar -->
+        <div id="status-bar">
+          <div id="status-dot" class="no-deps"></div>
+          <div id="status-label">IA local: sin instalar</div>
+          <div id="current-model"></div>
         </div>
-        <div id="search-results"></div>
+
+        <!-- Recommended models -->
+        <section class="inner-block">
+          <div class="section-header">Modelos recomendados</div>
+          <p class="section-desc">
+            Para corrección ortográfica no hace falta un modelo grande.
+            Qwen 2.5 0.5B es suficiente y usa poca memoria.
+          </p>
+          <div id="recommended-models"></div>
+        </section>
+
+        <!-- Installed models -->
+        <section class="inner-block">
+          <div class="section-header" id="installed-section-header" style="display:none;">Modelos en disco</div>
+          <p class="section-desc" id="installed-description" hidden>
+            Modelos ya descargados que puedes cargar directamente.
+          </p>
+          <div id="installed-models"></div>
+        </section>
+
+        <!-- Progress -->
+        <div id="progress-section">
+          <div id="progress-label">Procesando…</div>
+          <div id="progress-track">
+            <div id="progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div id="error-section"></div>
+
+        <!-- Folder -->
+        <section class="inner-block">
+          <div class="section-header">Carpeta de modelos</div>
+          <div id="folder-section">
+            <div id="folder-path" class="empty">Sin carpeta configurada</div>
+            <div id="folder-actions">
+              <button class="btn" id="btn-choose-folder">Elegir carpeta…</button>
+              <div id="shared-notice" class="hidden">📁 Carpeta compartida con ApliArte AI</div>
+            </div>
+          </div>
+
+          <!-- Shared folder with ApliArte AI -->
+          <div id="shared-folder-section" class="hidden">
+            <div class="section-header">📁 Carpeta detectada en ApliArte AI</div>
+            <div id="shared-folder-info">
+              <div id="shared-folder-path" class="path"></div>
+              <div id="shared-folder-status"></div>
+              <div id="shared-folder-actions"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Search -->
+        <section class="inner-block">
+          <div class="section-header">Buscar modelos</div>
+          <div id="search-section">
+            <div id="search-input-row">
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Buscar en HuggingFace (3+ caracteres)…"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button class="btn" id="btn-search">Buscar</button>
+            </div>
+            <div id="search-results"></div>
+          </div>
+        </section>
       </div>
-    </section>
+    </details>
   </div>
 
   <script src="${jsUri}"></script>

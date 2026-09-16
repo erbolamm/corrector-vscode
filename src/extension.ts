@@ -526,7 +526,11 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // ─── PANEL DE IA LOCAL ─────────────────────────────────────────────────
-    const iaPanelProvider = new IAPanelProvider(context.extensionUri, context.globalState);
+    const iaPanelProvider = new IAPanelProvider(
+        context.extensionUri,
+        context.globalState,
+        () => motor
+    );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(IAPanelProvider.viewType, iaPanelProvider),
         vscode.commands.registerCommand('corrector.openIaLocalPanel', () => {
@@ -692,16 +696,16 @@ async function manejarMensajeChat(
                     stream.markdown('> ' + texto + '\n\n');
                     stream.button({
                         command: 'corrector.enviarACopilot',
-                        title: '🚀 Enviar a Copilot manualmente',
+                        title: '🚀 Enviar al Chat manualmente',
                         arguments: [texto],
                     });
                 }
             } catch (err) {
-                stream.markdown('⚠️ **Error al conectar con Copilot:** ' + String(err) + '\n\n');
+                stream.markdown('⚠️ **Error al conectar con el Chat:** ' + String(err) + '\n\n');
                 stream.markdown('> ' + texto + '\n\n');
                 stream.button({
                     command: 'corrector.enviarACopilot',
-                    title: '🚀 Enviar a Copilot manualmente',
+                    title: '🚀 Enviar al Chat manualmente',
                     arguments: [texto],
                 });
             }
@@ -715,7 +719,7 @@ async function manejarMensajeChat(
 
             stream.button({
                 command: 'corrector.enviarACopilot',
-                title: '🚀 Enviar a Copilot',
+                title: '🚀 Enviar al Chat',
                 arguments: [texto],
             });
             stream.button({
@@ -759,7 +763,7 @@ async function manejarMensajeChat(
         });
         stream.button({
             command: 'corrector.enviarACopilot',
-            title: '🚀 Enviar a Copilot',
+            title: '🚀 Enviar al Chat',
             arguments: [resultado.textoCorregido],
         });
         stream.button({
@@ -771,7 +775,7 @@ async function manejarMensajeChat(
         // Si modo IA está activo, reenviar el texto ya corregido
         if (reenviarIA) {
             stream.markdown('\n---\n\n');
-            stream.markdown('🤖 **Modo IA activo** — reenviando el texto **corregido** a Copilot...\n\n');
+            stream.markdown('🤖 **Modo IA activo** — reenviando el texto **corregido** al Chat...\n\n');
             try {
                 const modeloSeleccionado = await seleccionarModelo(config, stream);
                 if (modeloSeleccionado) {
@@ -784,7 +788,7 @@ async function manejarMensajeChat(
                     }
                 }
             } catch (err) {
-                stream.markdown('⚠️ _Error al reenviar a Copilot: ' + String(err) + '_\n');
+                stream.markdown('⚠️ _Error al reenviar al Chat: ' + String(err) + '_\n');
             }
         }
     }

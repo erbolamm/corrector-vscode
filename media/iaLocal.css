@@ -87,6 +87,208 @@ body {
   margin-bottom: 4px;
 }
 
+/* ── Corrector Rápido Card ────────────────────────────── */
+.corrector-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(255, 255, 255, 0.03));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-icon {
+  font-size: 14px;
+}
+
+.subtle-count {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.input-wrap {
+  width: 100%;
+}
+
+#editor-input {
+  width: 100%;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 6px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 75px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+#editor-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.action-buttons-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-buttons-row .btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 5px 8px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+#resultado-wrap {
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--vscode-editor-background, rgba(0,0,0,0.15));
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resultado-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-box {
+  padding: 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  outline: none;
+  min-height: 40px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result-box:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.cambios-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.cambio-item {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cambio-item .orig {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.cambio-item .corr {
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.cambio-item .regla {
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* ── Accordion: IA Local ──────────────────────────────── */
+.accordion-section {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(255, 255, 255, 0.02));
+  transition: all 0.2s;
+}
+
+.accordion-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+  outline: none;
+  list-style: none;
+}
+
+.accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-summary::after {
+  content: '▼';
+  font-size: 8px;
+  margin-left: auto;
+  transition: transform 0.2s;
+  opacity: 0.7;
+}
+
+.accordion-section[open] .accordion-summary::after {
+  transform: rotate(180deg);
+}
+
+.accordion-body {
+  padding: 10px;
+  border-top: 1px solid var(--vscode-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inner-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-desc {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+}
+
 /* ── Model cards ──────────────────────────────────────── */
 #recommended-models {
   display: flex;

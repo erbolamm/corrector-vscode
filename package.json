@@ -88,7 +88,7 @@
       },
       {
         "command": "corrector.enviarACopilot",
-        "title": "Corrector: Enviar texto corregido a Copilot"
+        "title": "Corrector: Enviar texto corregido al chat"
       },
       {
         "command": "corrector.permitirSiempre",
@@ -225,7 +225,7 @@
         {
           "type": "webview",
           "id": "corrector.iaLocalPanel",
-          "name": "IA Local"
+          "name": "Corrector"
         }
       ]
     }

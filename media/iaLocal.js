@@ -17,6 +17,7 @@
     memoryInfo: null,
     warnedModelId: null,
     sharedFolder: null,
+    currentCorrectedText: '',
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -718,11 +719,163 @@ function updateSharedNotice(isShared) {
         updateStatusBar();
         renderRecommendedModels();
         break;
+
+      case 'resultadoCorreccion':
+        handleResultadoCorreccion(msg);
+        break;
+
+      case 'textoCopiado':
+        handleTextoCopiado();
+        break;
     }
   });
 
+  // ── Direct Corrector ─────────────────────────────────────────────────────
+  function initDirectCorrector() {
+    const input = $('editor-input');
+    const counter = $('char-counter');
+    const btnCorregir = $('btn-corregir');
+    const btnEnviarChat = $('btn-enviar-chat');
+    const btnCopiar = $('btn-copiar-resultado');
+    const boxResultado = $('box-texto-corregido');
+
+    if (!input) return;
+
+    input.addEventListener('input', function () {
+      const len = this.value.length;
+      if (counter) {
+        counter.textContent = len + (len === 1 ? ' caracter' : ' caracteres');
+      }
+      if (btnCorregir) {
+        btnCorregir.disabled = len === 0;
+      }
+      if (len === 0) {
+        if (btnEnviarChat) btnEnviarChat.disabled = true;
+        if (btnCopiar) btnCopiar.disabled = true;
+        const resWrap = $('resultado-wrap');
+        if (resWrap) resWrap.classList.add('hidden');
+      }
+    });
+
+    // Ctrl+Enter or Cmd+Enter to correct
+    input.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        ejecutarCorreccion();
+      }
+    });
+
+    if (btnCorregir) {
+      btnCorregir.addEventListener('click', ejecutarCorreccion);
+    }
+
+    if (btnEnviarChat) {
+      btnEnviarChat.addEventListener('click', function () {
+        const textToSend = (boxResultado && boxResultado.textContent.trim()) || state.currentCorrectedText || (input && input.value.trim());
+        if (textToSend) {
+          post({ command: 'enviarAChat', text: textToSend });
+        }
+      });
+    }
+
+    if (btnCopiar) {
+      btnCopiar.addEventListener('click', function () {
+        const textToCopy = (boxResultado && boxResultado.textContent.trim()) || state.currentCorrectedText || (input && input.value.trim());
+        if (textToCopy) {
+          post({ command: 'copiarTexto', text: textToCopy });
+        }
+      });
+    }
+
+    function ejecutarCorreccion() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (btnCorregir) {
+        btnCorregir.disabled = true;
+        btnCorregir.textContent = 'Analizando…';
+      }
+
+      post({
+        command: 'corregirTexto',
+        text: text,
+        usarIa: state.isModelLoaded,
+      });
+    }
+  }
+
+  function handleResultadoCorreccion(msg) {
+    const btnCorregir = $('btn-corregir');
+    const btnEnviarChat = $('btn-enviar-chat');
+    const btnCopiar = $('btn-copiar-resultado');
+    const resWrap = $('resultado-wrap');
+    const badge = $('badge-resultado');
+    const labelIdioma = $('label-idioma');
+    const box = $('box-texto-corregido');
+    const cambiosWrap = $('lista-cambios');
+
+    if (btnCorregir) {
+      btnCorregir.disabled = false;
+      btnCorregir.textContent = '✏️ Corregir';
+    }
+
+    if (!resWrap || !box) return;
+
+    const textoFinal = msg.refinadoIa || msg.textoCorregido || msg.textoOriginal || '';
+    state.currentCorrectedText = textoFinal;
+    box.textContent = textoFinal;
+    resWrap.classList.remove('hidden');
+
+    if (btnEnviarChat) btnEnviarChat.disabled = !textoFinal;
+    if (btnCopiar) btnCopiar.disabled = !textoFinal;
+
+    if (labelIdioma) {
+      labelIdioma.textContent = msg.idioma === 'en' ? 'Inglés' : 'Español';
+    }
+
+    if (badge) {
+      badge.className = 'badge';
+      if (msg.refinadoIa) {
+        badge.classList.add('badge-loaded');
+        badge.textContent = '✨ Refinado con IA';
+      } else if (msg.totalCorrecciones > 0) {
+        badge.classList.add('badge-loaded');
+        badge.textContent = msg.totalCorrecciones + (msg.totalCorrecciones === 1 ? ' corrección' : ' correcciones');
+      } else {
+        badge.classList.add('badge-not-installed');
+        badge.textContent = '✅ Sin errores';
+      }
+    }
+
+    if (cambiosWrap) {
+      cambiosWrap.innerHTML = '';
+      if (msg.correcciones && msg.correcciones.length > 0) {
+        cambiosWrap.classList.remove('hidden');
+        msg.correcciones.forEach(function (c) {
+          const item = document.createElement('div');
+          item.className = 'cambio-item';
+          item.innerHTML = '<span class="orig">' + esc(c.original) + '</span> → <span class="corr">' + esc(c.corregido) + '</span> <span class="regla">(' + esc(c.regla) + ')</span>';
+          cambiosWrap.appendChild(item);
+        });
+      } else {
+        cambiosWrap.classList.add('hidden');
+      }
+    }
+  }
+
+  function handleTextoCopiado() {
+    const btnCopiar = $('btn-copiar-resultado');
+    if (!btnCopiar) return;
+    const prevText = btnCopiar.textContent;
+    btnCopiar.textContent = '✅ ¡Copiado!';
+    setTimeout(function () {
+      btnCopiar.textContent = prevText;
+    }, 1500);
+  }
+
   // ── Init ─────────────────────────────────────────────────────────────────
   function init() {
+    initDirectCorrector();
     requestStatus();
     requestRecommendedModels();
     initThemeToggle();
