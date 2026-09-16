@@ -363,5 +363,18 @@ describe('Teclado adyacente y similitud fonética (Español sin IA)', () => {
     it('bida → vida (b→v)', () => {
         assert.equal(corregir('bida'), 'vida');
     });
+    it('prollegto → proyecto (ll→y + gt→ct)', () => {
+        assert.equal(corregir('prollegto'), 'proyecto');
+    });
+    it('prollecto → proyecto (ll→y)', () => {
+        assert.equal(corregir('prollecto'), 'proyecto');
+    });
+    it('proyegto → proyecto (gt→ct)', () => {
+        assert.equal(corregir('proyegto'), 'proyecto');
+    });
+    it('diregto → directo (gt→ct)', () => {
+        assert.equal(corregir('diregto'), 'directo');
+    });
 });
+
 

@@ -234,6 +234,15 @@ const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> =
     ['progarma', { corregido: 'programa', regla: 'transposición: programa' }],
     ['proyeto', { corregido: 'proyecto', regla: 'falta c: proyecto' }],
     ['proyesto', { corregido: 'proyecto', regla: 'transposición: proyecto' }],
+    ['prollegto', { corregido: 'proyecto', regla: 'll→y + gt→ct: proyecto' }],
+    ['prollecto', { corregido: 'proyecto', regla: 'll→y: proyecto' }],
+    ['prolleto', { corregido: 'proyecto', regla: 'll→y + falta c: proyecto' }],
+    ['prollesto', { corregido: 'proyecto', regla: 'll→y + transposición: proyecto' }],
+    ['proyegto', { corregido: 'proyecto', regla: 'gt→ct: proyecto' }],
+    ['diregto', { corregido: 'directo', regla: 'gt→ct: directo' }],
+    ['corregto', { corregido: 'correcto', regla: 'gt→ct: correcto' }],
+    ['perfegto', { corregido: 'perfecto', regla: 'gt→ct: perfecto' }],
+    ['efegto', { corregido: 'efecto', regla: 'gt→ct: efecto' }],
     ['archibo', { corregido: 'archivo', regla: 'b→v: archivo' }],
     ['bariable', { corregido: 'variable', regla: 'b→v: variable' }],
     ['seridor', { corregido: 'servidor', regla: 'falta v: servidor' }],
@@ -1146,6 +1155,42 @@ export class MotorCorrector {
             const conS = palabra.replace(/c([ei])/g, 's$1');
             if (VOCABULARIO_VALIDO_ES.has(conS)) {
                 return { corregido: conS, regla: `c→s: ${conS}` };
+            }
+        }
+
+        // f) ll <-> y (yeísmo)
+        if (palabra.includes('ll')) {
+            const conY = palabra.replace(/ll/g, 'y');
+            if (VOCABULARIO_VALIDO_ES.has(conY)) {
+                return { corregido: conY, regla: `ll→y: ${conY}` };
+            }
+        }
+        if (palabra.includes('y')) {
+            const conLL = palabra.replace(/y/g, 'll');
+            if (VOCABULARIO_VALIDO_ES.has(conLL)) {
+                return { corregido: conLL, regla: `y→ll: ${conLL}` };
+            }
+        }
+
+        // g) j <-> g ante e, i
+        if (palabra.includes('j')) {
+            const conG = palabra.replace(/j([eiéí])/g, 'g$1');
+            if (VOCABULARIO_VALIDO_ES.has(conG)) {
+                return { corregido: conG, regla: `j→g: ${conG}` };
+            }
+        }
+        if (palabra.includes('g')) {
+            const conJ = palabra.replace(/g([eiéí])/g, 'j$1');
+            if (VOCABULARIO_VALIDO_ES.has(conJ)) {
+                return { corregido: conJ, regla: `g→j: ${conJ}` };
+            }
+        }
+
+        // h) gt <-> ct (cultismos)
+        if (palabra.includes('gt')) {
+            const conCT = palabra.replace(/gt/g, 'ct');
+            if (VOCABULARIO_VALIDO_ES.has(conCT)) {
+                return { corregido: conCT, regla: `gt→ct: ${conCT}` };
             }
         }
 
