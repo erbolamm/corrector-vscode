@@ -2,6 +2,12 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 .hidden { display: none !important; }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
@@ -10,6 +16,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -69,12 +76,28 @@ body {
 
 /* ── Scrollable content ───────────────────────────────── */
 #content {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
-  padding: 10px;
+  overflow-x: hidden;
+  padding: 10px 10px 48px 10px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scrollbar-width: thin;
+}
+
+#content::-webkit-scrollbar {
+  width: 6px;
+}
+
+#content::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(128, 128, 128, 0.4));
+  border-radius: 3px;
+}
+
+#content::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(128, 128, 128, 0.7));
 }
 
 /* ── Section headers ──────────────────────────────────── */
