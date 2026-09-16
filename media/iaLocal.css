@@ -598,56 +598,93 @@ body {
   }
 }
 
-/* ── Theme toggle ──────────────────────────────────────── */
-.theme-toggle {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 100;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+/* ── Ecosystem Bar ────────────────────────────────────── */
+.ecosystem-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(255, 255, 255, 0.04));
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.ecosystem-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ecosystem-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+}
+
+.ecosystem-apps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-btn {
+  position: relative;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, transform 0.15s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.15s ease;
+  outline: none;
 }
 
-.theme-toggle:hover {
-  background: var(--vscode-button-hoverBackground);
-  transform: scale(1.05);
+.app-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+  border-color: var(--vscode-panel-border);
 }
 
-.theme-toggle:focus {
-  outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: 2px;
+.app-btn.active {
+  background: var(--vscode-toolbar-activeBackground, rgba(255, 255, 255, 0.12));
+  border-color: var(--vscode-focusBorder);
 }
 
-.theme-icon {
-  display: block;
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.theme-icon.hidden {
-  display: none;
-}
-
-html[data-theme="light"] #icon-sun,
-html[data-theme="dark"] #icon-moon {
-  display: none;
-}
-
-html[data-theme="light"] #icon-moon,
-html[data-theme="dark"] #icon-sun {
+.app-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   display: block;
 }
 
-/* Adjust content padding for theme toggle */
-body {
-  padding-top: 48px;
+.app-dot {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b7280;
+  border: 1px solid var(--vscode-sideBar-background);
+}
+
+.app-dot.installed {
+  background: #22c55e;
+}
+
+.app-dot.active {
+  background: #38bdf8;
+  box-shadow: 0 0 4px #38bdf8;
+}
+
+.app-dot.not-installed {
+  background: #f59e0b;
+}
+
+/* ── Hidden theme toggle ──────────────────────────────── */
+#theme-toggle {
+  display: none !important;
 }

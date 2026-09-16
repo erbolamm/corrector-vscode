@@ -727,6 +727,10 @@ function updateSharedNotice(isShared) {
       case 'textoCopiado':
         handleTextoCopiado();
         break;
+
+      case 'ecosystemStatus':
+        updateEcosystemStatus(msg.installed);
+        break;
     }
   });
 
@@ -873,8 +877,54 @@ function updateSharedNotice(isShared) {
     }, 1500);
   }
 
+  // ── Ecosystem Navigation ─────────────────────────────────────────────────
+  function initEcosystemNav() {
+    const apps = document.querySelectorAll('.app-btn');
+    apps.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = this.getAttribute('data-id');
+        if (id) {
+          post({ command: 'openExtension', id: id });
+        }
+      });
+    });
+  }
+
+  function updateEcosystemStatus(installed) {
+    if (!installed) return;
+    const aiStatus = $('dot-app-ai');
+    const kmStatus = $('dot-app-keymaster');
+    const aiBtn = $('btn-app-ai');
+    const kmBtn = $('btn-app-keymaster');
+
+    if (aiStatus && aiBtn) {
+      if (installed['apliarte-ai']) {
+        aiStatus.className = 'app-dot installed';
+        aiStatus.title = 'Instalada';
+        aiBtn.title = 'Abrir ApliArte AI (Instalada)';
+      } else {
+        aiStatus.className = 'app-dot not-installed';
+        aiStatus.title = 'No instalada';
+        aiBtn.title = 'Instalar ApliArte AI desde Extensiones';
+      }
+    }
+
+    if (kmStatus && kmBtn) {
+      if (installed['keymaster']) {
+        kmStatus.className = 'app-dot installed';
+        kmStatus.title = 'Instalada';
+        kmBtn.title = 'Abrir KeyMaster (Instalada)';
+      } else {
+        kmStatus.className = 'app-dot not-installed';
+        kmStatus.title = 'No instalada';
+        kmBtn.title = 'Instalar KeyMaster desde Extensiones';
+      }
+    }
+  }
+
   // ── Init ─────────────────────────────────────────────────────────────────
   function init() {
+    initEcosystemNav();
     initDirectCorrector();
     requestStatus();
     requestRecommendedModels();

@@ -239,6 +239,37 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             }
             break;
 
+          case 'openExtension': {
+            const ext = data.id as string;
+            if (ext === 'apliarte-ai') {
+              const hasAi = Boolean(vscode.extensions?.getExtension?.('apliarte.apliarte-ai'));
+              if (hasAi) {
+                try {
+                  await vscode.commands.executeCommand('apliarteAi.chatView.focus');
+                } catch {
+                  await vscode.commands.executeCommand('workbench.view.extension.apliarteAi');
+                }
+              } else {
+                await vscode.commands.executeCommand('workbench.extensions.search', 'apliarte.apliarte-ai');
+              }
+            } else if (ext === 'keymaster') {
+              const hasKm = Boolean(
+                vscode.extensions?.getExtension?.('apliarte.keymaster') ||
+                vscode.extensions?.getExtension?.('apliarte.key-master')
+              );
+              if (hasKm) {
+                try {
+                  await vscode.commands.executeCommand('keymasterShortcuts.focus');
+                } catch {
+                  await vscode.commands.executeCommand('workbench.view.extension.keymasterShortcuts');
+                }
+              } else {
+                await vscode.commands.executeCommand('workbench.extensions.search', 'apliarte.keymaster');
+              }
+            }
+            break;
+          }
+
           case 'disableIaLocal':
             await this._disableIaLocal();
             break;
@@ -303,6 +334,20 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       installedModels: installed,
       memoryInfo,
       sharedFolder: sharedFolderInfo,
+    });
+
+    const hasAi = Boolean(vscode.extensions?.getExtension?.('apliarte.apliarte-ai'));
+    const hasKm = Boolean(
+      vscode.extensions?.getExtension?.('apliarte.keymaster') ||
+      vscode.extensions?.getExtension?.('apliarte.key-master')
+    );
+    this._post({
+      type: 'ecosystemStatus',
+      installed: {
+        'apliarte-ai': hasAi,
+        'corrector': true,
+        'keymaster': hasKm,
+      },
     });
   }
 
@@ -614,6 +659,15 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'iaLocal.js'),
     );
+    const iconCorrectorUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'icons', 'corrector.png'),
+    );
+    const iconAiUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'icons', 'apliarte-ai.png'),
+    );
+    const iconKeymasterUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'icons', 'keymaster.png'),
+    );
 
     return `<!DOCTYPE html>
 <html lang="es">
@@ -625,10 +679,31 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   <title>Corrector e IA Local</title>
 </head>
 <body>
-  <!-- Theme toggle -->
-  <div id="theme-toggle" class="theme-toggle" title="Alternar tema claro/oscuro" role="button" tabindex="0" aria-label="Alternar tema claro/oscuro">
-    <svg id="icon-sun" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g></svg>
-    <svg id="icon-moon" class="theme-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+  <!-- Barra de Navegación del Ecosistema ApliArte -->
+  <header class="ecosystem-bar">
+    <div class="ecosystem-brand">
+      <span class="ecosystem-title">APLIARTE</span>
+    </div>
+    <div class="ecosystem-apps">
+      <button class="app-btn active" id="btn-app-corrector" data-id="corrector" title="Corrector (Activo)">
+        <img src="${iconCorrectorUri}" alt="Corrector" class="app-icon" />
+        <span class="app-dot active"></span>
+      </button>
+      <button class="app-btn" id="btn-app-ai" data-id="apliarte-ai" title="ApliArte AI">
+        <img src="${iconAiUri}" alt="ApliArte AI" class="app-icon" />
+        <span class="app-dot" id="dot-app-ai"></span>
+      </button>
+      <button class="app-btn" id="btn-app-keymaster" data-id="keymaster" title="KeyMaster">
+        <img src="${iconKeymasterUri}" alt="KeyMaster" class="app-icon" />
+        <span class="app-dot" id="dot-app-keymaster"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Theme toggle (mantenido oculto por compatibilidad) -->
+  <div id="theme-toggle" class="hidden" aria-hidden="true">
+    <svg id="icon-sun" class="hidden" aria-hidden="true"></svg>
+    <svg id="icon-moon" class="hidden" aria-hidden="true"></svg>
   </div>
 
   <!-- Content -->
