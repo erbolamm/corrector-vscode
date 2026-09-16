@@ -271,11 +271,18 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
           }
 
           case 'suggestGithub': {
-            const orig = data.original ? encodeURIComponent(data.original as string) : '';
-            const corr = data.corrected ? encodeURIComponent(data.corrected as string) : '';
-            const title = encodeURIComponent(`Sugerencia de diccionario: "${data.original || ''}"`);
+            const orig = (data.original as string) || '';
+            const corr = (data.corrected as string) || '';
+            const hasText = Boolean(orig || corr);
+            const title = encodeURIComponent(
+              hasText
+                ? `Feedback / Corrección: "${orig.slice(0, 40)}${orig.length > 40 ? '…' : ''}"`
+                : `Feedback / Sugerencia para Corrector`
+            );
             const body = encodeURIComponent(
-              `### Sugerencia de corrección para el diccionario\n\n- **Texto original:** \`${data.original || ''}\`\n- **Resultado del corrector:** \`${data.corrected || ''}\`\n- **Corrección esperada:** \n\n*Enviado voluntariamente desde la extensión Corrector.*`
+              hasText
+                ? `### Reporte / Feedback de Corrección\n\n- **Texto analizado:** \`${orig}\`\n- **Resultado:** \`${corr}\`\n\n**¿Qué falla, qué esperabas o qué sugieres?:**\n\n\n*Enviado desde la extensión Corrector.*`
+                : `### Sugerencia / Reporte de Fallo / Feedback\n\n**Describe tu comentario, sugerencia o problema:**\n\n\n*Enviado desde la extensión Corrector.*`
             );
             const url = `https://github.com/erbolamm/corrector-vscode/issues/new?title=${title}&body=${body}`;
             await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -766,10 +773,10 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
           </button>
         </div>
 
-        <!-- Sugerencia voluntaria en GitHub -->
+        <!-- Sugerencias, fallos y feedback en GitHub -->
         <div class="github-suggest-wrap">
-          <button id="btn-suggest-github" class="btn-link" title="Sugerir corrección en GitHub para mejorar el diccionario">
-            💡 ¿Falta una palabra o es incorrecta? Sugerir en GitHub
+          <button id="btn-suggest-github" class="btn-link" title="Sugerir palabras, reportar fallos o enviar comentarios en GitHub">
+            💬 ¿Falta una palabra, hay un fallo o una sugerencia? Enviar en GitHub
           </button>
         </div>
       </div>
