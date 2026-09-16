@@ -499,7 +499,7 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://huggingface.co;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' ${webview.cspSource ?? ''}; script-src 'self' ${webview.cspSource ?? ''}; style-src 'self' ${webview.cspSource ?? ''} 'unsafe-inline'; connect-src https://huggingface.co;">
   <link rel="stylesheet" href="${cssUri}">
   <title>IA Local — Corrector</title>
 </head>
@@ -591,18 +591,6 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   </div>
 
   <script src="${jsUri}"></script>
-  <script>
-    document.getElementById('btn-choose-folder').addEventListener('click', function() {
-      window.parent.postMessage({ type: 'vscodeApi', command: 'chooseModelsDir' }, '*');
-    });
-    document.getElementById('btn-search').addEventListener('click', function() {
-      var input = document.getElementById('search-input');
-      var query = input.value.trim();
-      if (query.length >= 3) {
-        window.parent.postMessage({ type: 'vscodeApi', command: 'searchHuggingFace', query: query }, '*');
-      }
-    });
-  </script>
 </body>
 </html>`;
   }
