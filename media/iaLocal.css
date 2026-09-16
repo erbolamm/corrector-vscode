@@ -219,30 +219,67 @@ body {
   gap: 4px;
 }
 
-.github-suggest-wrap {
-  margin-top: 4px;
-  text-align: center;
-  border-top: 1px dashed var(--vscode-panel-border);
-  padding-top: 6px;
+/* ── Community Feedback Card (GitHub) ─────────────────── */
+.community-feedback-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(255, 255, 255, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
 }
 
-.btn-link {
-  background: transparent;
-  border: none;
-  color: var(--vscode-textLink-foreground, #38bdf8);
-  font-size: 10px;
+.community-feedback-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.community-icon {
+  font-size: 13px;
+}
+
+.community-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.community-desc {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.btn-github {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.08));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+  border-radius: 5px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 2px 4px;
-  outline: none;
-  opacity: 0.85;
-  transition: opacity 0.2s;
-  display: inline-block;
+  transition: all 0.15s ease;
+  margin-top: 4px;
 }
 
-.btn-link:hover {
-  opacity: 1;
-  text-decoration: underline;
-  color: var(--vscode-textLink-activeForeground, #7dd3fc);
+.btn-github:hover {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.14));
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}
+
+.github-svg {
+  flex-shrink: 0;
 }
 
 #resultado-wrap {
