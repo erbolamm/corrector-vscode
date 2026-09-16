@@ -68,6 +68,7 @@ const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> =
     ['ola', { corregido: 'hola', regla: 'h omitida: hola' }],
     ['olah', { corregido: 'hola', regla: 'h al final: hola' }],
     ['jola', { corregido: 'hola', regla: 'j→h: hola' }],
+    ['gola', { corregido: 'hola', regla: 'g→h: hola (tecla adyacente)' }],
     ['asta', { corregido: 'hasta', regla: 'h omitida: hasta' }],
     ['astah', { corregido: 'hasta', regla: 'h al final: hasta' }],
     ['acer', { corregido: 'hacer', regla: 'h omitida: hacer' }],
@@ -75,9 +76,25 @@ const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> =
     ['ace', { corregido: 'hace', regla: 'h omitida: hace' }],
     ['ase', { corregido: 'hace', regla: 'h omitida + s→c: hace' }],
     ['jace', { corregido: 'hace', regla: 'j→h: hace' }],
+    ['gace', { corregido: 'hace', regla: 'g→h: hace (tecla adyacente)' }],
+    ['gaces', { corregido: 'haces', regla: 'g→h: haces (tecla adyacente)' }],
+    ['gacer', { corregido: 'hacer', regla: 'g→h: hacer (tecla adyacente)' }],
+    ['gago', { corregido: 'hago', regla: 'g→h: hago (tecla adyacente)' }],
+    ['gacemos', { corregido: 'hacemos', regla: 'g→h: hacemos (tecla adyacente)' }],
+    ['gacen', { corregido: 'hacen', regla: 'g→h: hacen (tecla adyacente)' }],
+    ['haze', { corregido: 'hace', regla: 'seseo: hace' }],
+    ['hazes', { corregido: 'haces', regla: 'seseo: haces' }],
+    ['hazen', { corregido: 'hacen', regla: 'seseo: hacen' }],
     ['echo', { corregido: 'hecho', regla: 'h omitida: hecho' }],
+    ['echos', { corregido: 'hechos', regla: 'h omitida: hechos' }],
     ['emos', { corregido: 'hemos', regla: 'h omitida: hemos' }],
     ['ablar', { corregido: 'hablar', regla: 'h omitida: hablar' }],
+    ['ablo', { corregido: 'hablo', regla: 'h omitida: hablo' }],
+    ['abla', { corregido: 'habla', regla: 'h omitida: habla' }],
+    ['ablan', { corregido: 'hablan', regla: 'h omitida: hablan' }],
+    ['ablas', { corregido: 'hablas', regla: 'h omitida: hablas' }],
+    ['ablando', { corregido: 'hablando', regla: 'h omitida: hablando' }],
+    ['aora', { corregido: 'ahora', regla: 'h omitida: ahora' }],
     // NOTA: 'ay' se maneja con corrección contextual (ver aplicarCorreccionesContextuales)
     ['oy', { corregido: 'hoy', regla: 'h omitida: hoy' }],
     ['aver', { corregido: 'a ver', regla: 'h omitida + separación: a ver' }],
@@ -122,6 +139,8 @@ const CORRECCIONES_DIRECTAS: Map<string, { corregido: string; regla: string }> =
 
     // ── G / Q confusión (teclas adyacentes) ──
     ['gue', { corregido: 'que', regla: 'g→q: que (tecla adyacente)' }],
+    ['bue', { corregido: 'que', regla: 'errata de teclado / abreviatura: que' }],
+    ['bno', { corregido: 'bueno', regla: 'abreviatura: bno→bueno' }],
     ['guiero', { corregido: 'quiero', regla: 'g→q: quiero' }],
     ['guieres', { corregido: 'quieres', regla: 'g→q: quieres' }],
     ['guiere', { corregido: 'quiere', regla: 'g→q: quiere' }],
@@ -524,9 +543,24 @@ const VOCABULARIO_BASE_ES = new Set([
     'hijo', 'hija', 'familia', 'libro', 'agua', 'ciudad', 'país',
     'escuela', 'idea', 'paso', 'cambio', 'clase', 'nivel',
     'cuerpo', 'razón', 'centro', 'fin', 'verdad', 'manera',
-    'padre', 'madre', 'amigo', 'amiga', 'noche',
+    'padre', 'madre', 'amigo', 'amiga', 'amigos', 'amigas', 'noche',
     'mano', 'gente', 'calle', 'mesa', 'puerta', 'dinero',
     'hora', 'semana', 'mes', 'horas', 'días', 'años',
+    // === Formas verbales adicionales ===
+    'hizo', 'hice', 'hicieron', 'hicimos', 'hagan', 'hagamos',
+    'hubo', 'había', 'habían', 'habrá', 'habrán', 'haya', 'hayan',
+    'fue', 'fueron', 'fui', 'fuiste', 'fuimos',
+    'dijo', 'dije', 'dijeron', 'dijimos',
+    'pudo', 'pude', 'pudieron', 'pudimos',
+    'supo', 'supe', 'supieron', 'supimos',
+    'tuvo', 'tuve', 'tuvieron', 'tuvimos',
+    'estuvo', 'estuve', 'estuvieron', 'estuvimos',
+    'vino', 'vine', 'vinieron', 'vinimos',
+    'quiso', 'quise', 'quisieron', 'quisimos',
+    'entiendo', 'entiende', 'entiendes', 'entendemos', 'entienden',
+    'pregunta', 'preguntas', 'responder', 'respuesta', 'respuestas',
+    'ayuda', 'ayudar', 'mensaje', 'mensajes', 'correo', 'correos',
+    'pantalla', 'panel', 'botón', 'botones', 'modo', 'modos', 'prueba', 'pruebas',
     // === Adjetivos comunes ===
     'bueno', 'buena', 'buenos', 'buenas', 'malo', 'mala',
     'grande', 'pequeño', 'pequeña', 'nuevo', 'nueva', 'viejo', 'vieja',
@@ -547,6 +581,57 @@ const VOCABULARIO_BASE_ES = new Set([
     'cada', 'tal', 'así', 'tan', 'hay', 'qué', 'quién', 'eso',
     'estas', 'luego', 'solo', 'después', 'todas', 'todos',
 ]);
+
+/**
+ * Vocabulario de palabras válidas en español (base + términos correctos del diccionario).
+ */
+function construirVocabularioValido(): Set<string> {
+    const vocab = new Set(VOCABULARIO_BASE_ES);
+    for (const { corregido } of CORRECCIONES_DIRECTAS.values()) {
+        for (const palabra of corregido.split(' ')) {
+            const limpia = palabra.replace(/[^\wáéíóúüñ]/gi, '').toLowerCase();
+            if (limpia.length >= 1) {
+                vocab.add(limpia);
+            }
+        }
+    }
+    return vocab;
+}
+
+const VOCABULARIO_VALIDO_ES = construirVocabularioValido();
+
+/**
+ * Matriz de teclas adyacentes en teclado físico QWERTY español.
+ */
+const TECLAS_ADYACENTES_QWERTY: Record<string, string[]> = {
+    a: ['q', 'w', 's', 'z'],
+    b: ['v', 'g', 'h', 'n', 'f'],
+    c: ['x', 'd', 'f', 'v'],
+    d: ['s', 'e', 'r', 'f', 'c', 'x'],
+    e: ['w', 'r', 'd', 's'],
+    f: ['d', 'r', 't', 'g', 'v', 'c'],
+    g: ['f', 't', 'y', 'h', 'b', 'v'],
+    h: ['g', 'y', 'u', 'j', 'n', 'b'],
+    i: ['u', 'o', 'k', 'j'],
+    j: ['h', 'u', 'i', 'k', 'm', 'n'],
+    k: ['j', 'i', 'o', 'l', 'm'],
+    l: ['k', 'o', 'p', 'ñ'],
+    m: ['n', 'j', 'k'],
+    n: ['b', 'h', 'j', 'm'],
+    ñ: ['l', 'p'],
+    o: ['i', 'p', 'l', 'k'],
+    p: ['o', 'ñ', 'l'],
+    q: ['w', 'a'],
+    r: ['e', 't', 'f', 'd'],
+    s: ['a', 'w', 'e', 'd', 'x', 'z'],
+    t: ['r', 'y', 'g', 'f'],
+    u: ['y', 'i', 'j', 'h'],
+    v: ['c', 'f', 'g', 'b'],
+    w: ['q', 'e', 's', 'a'],
+    x: ['z', 's', 'd', 'c'],
+    y: ['t', 'u', 'h', 'g'],
+    z: ['a', 's', 'x'],
+};
 
 /**
  * Construye el vocabulario completo para segmentación:
@@ -659,6 +744,11 @@ export class MotorCorrector {
         // PASO 5: Correcciones contextuales (palabras ambiguas: mas/más, ay/hay)
         if (idioma === 'es') {
             textoCorregido = this.aplicarCorreccionesContextuales(textoCorregido, correcciones);
+        }
+
+        // PASO 6: Similitud fonética y proximidad de teclado (solo español)
+        if (idioma === 'es') {
+            textoCorregido = this.aplicarCorreccionTecladoYFonetica(textoCorregido, correcciones);
         }
 
         // Actualizar estadísticas
@@ -942,6 +1032,154 @@ export class MotorCorrector {
      */
     private escaparRegex(str: string): string {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Aplica correcciones automáticas basadas en fonética española y proximidad de teclado físico.
+     * Solo se evalúan palabras que no existen en el vocabulario conocido ni fueron corregidas previamente.
+     */
+    private aplicarCorreccionTecladoYFonetica(
+        texto: string,
+        correcciones: Correccion[]
+    ): string {
+        return texto.replace(/\b[\wáéíóúüñ]+\b/gi, (palabra, offset) => {
+            const lower = palabra.toLowerCase();
+
+            // Si ya fue corregida en un paso previo, no volver a tocar
+            if (correcciones.some(c => c.posicion === offset || c.original.toLowerCase() === lower)) {
+                return palabra;
+            }
+
+            // Si el usuario marcó la palabra como ignorada, respetar
+            if (this.palabrasIgnoradas.has(lower)) {
+                return palabra;
+            }
+
+            // Si ya es una palabra válida del vocabulario o diccionario personal, no tocar
+            if (VOCABULARIO_VALIDO_ES.has(lower) || this.diccionarioPersonal.has(lower)) {
+                return palabra;
+            }
+
+            // Si contiene dígitos o es de un solo carácter no vocálico, no tocar
+            if (/\d/.test(palabra) || (palabra.length === 1 && !'aeiouáéíóú'.includes(lower))) {
+                return palabra;
+            }
+
+            const candidato = this.buscarCandidatoFoneticaYTeclado(lower);
+            if (candidato && candidato.corregido !== lower) {
+                const resultado = this.preservarCapitalizacion(palabra, candidato.corregido);
+                correcciones.push({
+                    original: palabra,
+                    corregido: resultado,
+                    regla: candidato.regla,
+                    posicion: offset,
+                });
+                return resultado;
+            }
+
+            return palabra;
+        });
+    }
+
+    /**
+     * Busca el candidato más probable en el vocabulario español mediante:
+     *  1. Reglas fonéticas (h inicial/final, g/j ante vocal, b/v, c/s/z, ll/y).
+     *  2. Transposiciones de letras contiguas (Damerau-Levenshtein 1).
+     *  3. Erratas de teclado físico por teclas adyacentes QWERTY.
+     */
+    private buscarCandidatoFoneticaYTeclado(
+        palabra: string
+    ): { corregido: string; regla: string } | null {
+        if (palabra.length < 3) {
+            return null;
+        }
+
+        // 1. Fonética directa:
+        // a) Falta h inicial (ej. ace -> hace, echo -> hecho)
+        const conH = 'h' + palabra;
+        if (VOCABULARIO_VALIDO_ES.has(conH)) {
+            return { corregido: conH, regla: `h omitida: ${conH}` };
+        }
+
+        // b) h al final desplazada (ej. olah -> hola, astah -> hasta)
+        if (palabra.endsWith('h')) {
+            const sinH = palabra.slice(0, -1);
+            const conHIni = 'h' + sinH;
+            if (VOCABULARIO_VALIDO_ES.has(conHIni)) {
+                return { corregido: conHIni, regla: `h al final: ${conHIni}` };
+            }
+            if (VOCABULARIO_VALIDO_ES.has(sinH)) {
+                return { corregido: sinH, regla: `h superflua: ${sinH}` };
+            }
+        }
+
+        // c) g o j inicial por h (ej. gace -> hace, jola -> hola)
+        if (palabra.startsWith('g') || palabra.startsWith('j')) {
+            const conHIni = 'h' + palabra.slice(1);
+            if (VOCABULARIO_VALIDO_ES.has(conHIni)) {
+                return { corregido: conHIni, regla: `g/j por h: ${conHIni}` };
+            }
+        }
+
+        // d) b <-> v
+        if (palabra.includes('b')) {
+            const conV = palabra.replace(/b/g, 'v');
+            if (VOCABULARIO_VALIDO_ES.has(conV)) {
+                return { corregido: conV, regla: `b→v: ${conV}` };
+            }
+        }
+        if (palabra.includes('v')) {
+            const conB = palabra.replace(/v/g, 'b');
+            if (VOCABULARIO_VALIDO_ES.has(conB)) {
+                return { corregido: conB, regla: `v→b: ${conB}` };
+            }
+        }
+
+        // e) s <-> c ante e, i
+        if (palabra.includes('s')) {
+            const conC = palabra.replace(/s([ei])/g, 'c$1');
+            if (VOCABULARIO_VALIDO_ES.has(conC)) {
+                return { corregido: conC, regla: `s→c: ${conC}` };
+            }
+        }
+        if (palabra.includes('c')) {
+            const conS = palabra.replace(/c([ei])/g, 's$1');
+            if (VOCABULARIO_VALIDO_ES.has(conS)) {
+                return { corregido: conS, regla: `c→s: ${conS}` };
+            }
+        }
+
+        // 2. Transposiciones adyacentes (letras cambiadas de orden)
+        for (let i = 0; i < palabra.length - 1; i++) {
+            if (palabra[i] === palabra[i + 1]) continue;
+            const transpuesta =
+                palabra.slice(0, i) +
+                palabra[i + 1] +
+                palabra[i] +
+                palabra.slice(i + 2);
+            if (VOCABULARIO_VALIDO_ES.has(transpuesta)) {
+                return { corregido: transpuesta, regla: `transposición: ${transpuesta}` };
+            }
+        }
+
+        // 3. Teclas adyacentes QWERTY (errata de un dedo vecino)
+        for (let i = 0; i < palabra.length; i++) {
+            const letra = palabra[i];
+            const vecinas = TECLAS_ADYACENTES_QWERTY[letra];
+            if (!vecinas) continue;
+
+            for (const vecina of vecinas) {
+                const variante = palabra.slice(0, i) + vecina + palabra.slice(i + 1);
+                if (VOCABULARIO_VALIDO_ES.has(variante)) {
+                    return {
+                        corregido: variante,
+                        regla: `tecla adyacente ${letra}→${vecina}: ${variante}`,
+                    };
+                }
+            }
+        }
+
+        return null;
     }
 
     // ─── SEGMENTACIÓN DE PALABRAS PEGADAS (CON FUZZY MATCHING) ─────────

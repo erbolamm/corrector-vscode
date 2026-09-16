@@ -332,3 +332,36 @@ describe('Inglés — Palabras correctas no se tocan', () => {
     it('because no se toca', () => { assert.equal(corregir('because of this'), 'because of this'); });
     it('different no se toca', () => { assert.equal(corregir('that is different'), 'that is different'); });
 });
+
+// ─── SUITE: Teclado adyacente y similitud fonética ───────────────────────────
+
+describe('Teclado adyacente y similitud fonética (Español sin IA)', () => {
+    it('olah bue gace → hola que hace', () => {
+        assert.equal(corregir('olah bue gace'), 'hola que hace');
+    });
+    it('gace → hace (tecla adyacente g→h)', () => {
+        assert.equal(corregir('gace'), 'hace');
+    });
+    it('gaces → haces (tecla adyacente g→h)', () => {
+        assert.equal(corregir('gaces'), 'haces');
+    });
+    it('gacer → hacer (tecla adyacente g→h)', () => {
+        assert.equal(corregir('gacer'), 'hacer');
+    });
+    it('gago → hago (tecla adyacente g→h)', () => {
+        assert.equal(corregir('gago'), 'hago');
+    });
+    it('tedto → texto (tecla adyacente d→x)', () => {
+        assert.equal(corregir('tedto'), 'texto');
+    });
+    it('tnego → tengo (transposición)', () => {
+        assert.equal(corregir('tnego'), 'tengo');
+    });
+    it('peudo → puedo (transposición)', () => {
+        assert.equal(corregir('peudo'), 'puedo');
+    });
+    it('bida → vida (b→v)', () => {
+        assert.equal(corregir('bida'), 'vida');
+    });
+});
+
