@@ -115,11 +115,18 @@
     }
   }
 
+  function isModelInstalled(modelId) {
+    return state.installedModels.some(function (m) { return m.id === modelId; });
+  }
+
   function getModelStatus(modelId) {
-    if (!state.isModelLoaded || state.currentModel !== modelId) {
-      return state.isDepsInstalled ? 'not-installed' : 'no-deps';
+    if (state.isModelLoaded && state.currentModel === modelId) {
+      return 'loaded';
     }
-    return 'loaded';
+    if (isModelInstalled(modelId)) {
+      return 'downloaded';
+    }
+    return state.isDepsInstalled ? 'not-installed' : 'no-deps';
   }
 
   function renderRecommendedModels() {
@@ -174,10 +181,10 @@
       statusBadge.id = 'badge-' + esc(model.id.replace(/\//g, '_'));
       if (status === 'loaded') {
         statusBadge.className += ' badge-loaded';
-        statusBadge.textContent = 'Cargado';
-      } else if (status === 'not-installed') {
-        statusBadge.className += ' badge-not-installed';
-        statusBadge.textContent = 'Sin instalar';
+        statusBadge.textContent = 'En memoria';
+      } else if (status === 'downloaded') {
+        statusBadge.className += ' badge-loaded';
+        statusBadge.textContent = 'En disco';
       } else {
         statusBadge.className += ' badge-not-installed';
         statusBadge.textContent = 'Sin instalar';
@@ -213,7 +220,11 @@
         // Not loaded → show load button
         const loadBtn = document.createElement('button');
         loadBtn.className = 'btn btn-sm btn-primary';
-        loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar';
+        if (status === 'downloaded') {
+          loadBtn.textContent = state.isDepsInstalled ? 'Cargar' : 'Instalar deps';
+        } else {
+          loadBtn.textContent = state.isDepsInstalled ? 'Descargar' : 'Instalar';
+        }
         loadBtn.disabled = isLoading;
         loadBtn.addEventListener('click', function () {
           if (!state.isDepsInstalled) {

@@ -135,9 +135,14 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
 
           case 'useSharedFolder':
             if (data.path && typeof data.path === 'string') {
-              await vscode.workspace
-                .getConfiguration('corrector')
-                .update('modelsDir', data.path, vscode.ConfigurationTarget.Global);
+              await this._globalState.update('iaLocal_modelsDir', data.path);
+              try {
+                await vscode.workspace
+                  .getConfiguration('corrector')
+                  .update('modelsDir', data.path, vscode.ConfigurationTarget.Global);
+              } catch {
+                // Main process schema cache fallback: globalState already persisted
+              }
               await this._sendStatus();
             }
             break;
@@ -210,6 +215,10 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   }
 
   private _getModelsDir(): string {
+    const fromGlobal = this._globalState.get<string>('iaLocal_modelsDir', '');
+    if (fromGlobal && fromGlobal.trim()) {
+      return fromGlobal.trim();
+    }
     const explicit = vscode.workspace.getConfiguration('corrector').get<string>('modelsDir', '');
     if (explicit && explicit.trim()) {
       return explicit.trim();
@@ -378,10 +387,15 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const cfg = vscode.workspace.getConfiguration('corrector');
-    await cfg.update('modelsDir', folderPath, vscode.ConfigurationTarget.Global);
+    await this._globalState.update('iaLocal_modelsDir', folderPath);
+    try {
+      const cfg = vscode.workspace.getConfiguration('corrector');
+      await cfg.update('modelsDir', folderPath, vscode.ConfigurationTarget.Global);
+    } catch {
+      // Main process schema cache fallback
+    }
 
-    this._sendStatus();
+    await this._sendStatus();
   }
 
   // ── HuggingFace search ──────────────────────────────────────────────────
