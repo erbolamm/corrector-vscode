@@ -365,11 +365,7 @@ function updateSharedNotice(isShared) {
       useBtn.className = 'btn btn-sm btn-primary';
       useBtn.textContent = 'Usar esta carpeta';
       useBtn.addEventListener('click', function () {
-        chooseModelsDir();
-        // Pre-fill with the shared folder path
-        setTimeout(function () {
-          // The dialog will open with the current folder as default
-        }, 100);
+        post({ command: 'useSharedFolder', path: path });
       });
       actionsEl.appendChild(useBtn);
     } else {

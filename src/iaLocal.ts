@@ -600,6 +600,30 @@ function _scanModelsRecursive(
         }
     }
 
+    // Detect plain model directory: ORG/NAME with direct .onnx or onnx/ subdirectory
+    if (depth >= 1 && depth <= 3 && currentDir !== baseDir) {
+        const hasOnnxFile = entries.some((f) => f.endsWith('.onnx') || f.endsWith('.safetensors'));
+        const onnxSubdir = subdirs.includes('onnx') ? join(currentDir, 'onnx') : null;
+        let hasSubOnnx = false;
+        if (onnxSubdir) {
+            try {
+                hasSubOnnx = readdirSync(onnxSubdir).some((f) => f.endsWith('.onnx') || f.endsWith('.safetensors'));
+            } catch { /* skip */ }
+        }
+
+        if (hasOnnxFile || hasSubOnnx) {
+            const relId = currentDir.slice(baseDir.length + 1);
+            if (relId.includes('/') && !relId.startsWith('models--')) {
+                out.push({
+                    id: relId,
+                    localPath: currentDir,
+                    sizeBytes: _dirSizeBytes(currentDir),
+                });
+                return;
+            }
+        }
+    }
+
     for (const sub of subdirs) {
         if (_SKIP_DIRS.has(sub)) { continue; }
         _scanModelsRecursive(baseDir, join(currentDir, sub), depth + 1, out);

@@ -197,6 +197,11 @@
           "type": "string",
           "default": "",
           "markdownDescription": "**Modelo de Ollama** a usar para corrección. Déjalo vacío para usar el primer modelo disponible.\n\nEjemplos: `llama3.2`, `qwen2.5:3b`, `gemma2:2b`"
+        },
+        "corrector.modelsDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "**Carpeta de modelos locales:** Ruta donde se almacenan los modelos de IA local. Compatible con la carpeta compartida de ApliArte AI."
         }
       }
     },

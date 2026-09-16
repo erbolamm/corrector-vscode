@@ -133,6 +133,15 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
             break;
           }
 
+          case 'useSharedFolder':
+            if (data.path && typeof data.path === 'string') {
+              await vscode.workspace
+                .getConfiguration('corrector')
+                .update('modelsDir', data.path, vscode.ConfigurationTarget.Global);
+              await this._sendStatus();
+            }
+            break;
+
           case 'disableIaLocal':
             await this._disableIaLocal();
             break;
@@ -201,9 +210,15 @@ export class IAPanelProvider implements vscode.WebviewViewProvider {
   }
 
   private _getModelsDir(): string {
-    return (
-      vscode.workspace.getConfiguration('corrector').get<string>('modelsDir', '') || ''
-    );
+    const explicit = vscode.workspace.getConfiguration('corrector').get<string>('modelsDir', '');
+    if (explicit && explicit.trim()) {
+      return explicit.trim();
+    }
+    const apliarteDir = getApliArteAiModelsDirFromConfig(vscode);
+    if (apliarteDir && apliarteDir.trim()) {
+      return apliarteDir.trim();
+    }
+    return '';
   }
 
   private _areDepsInstalled(): boolean {
